@@ -52,7 +52,10 @@ export const SEO: React.FC<SEOComponentProps> = (props) => {
     });
 
     if (props.title) {
-      document.title = `${props.title} - Silsilah Keluarga`;
+      const siteName = 'Silsilah Keluarga';
+      document.title = props.title.includes(siteName)
+        ? props.title
+        : `${props.title} - ${siteName}`;
     } else {
       document.title = 'Silsilah Keluarga';
     }
