@@ -58,8 +58,25 @@ export function AddRelationshipModal({
   const [requesterNote, setRequesterNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [filteredSearchResults, setFilteredSearchResults] = useState<Person[]>(
+    [],
+  );
 
   const isMember = currentUser?.role === 'member';
+
+  const resetForm = () => {
+    setSelectedRelationships([]);
+    setCurrentType('PARENT');
+    setCurrentParentRole(undefined);
+    setMarriageDate('');
+    setMarriagePlace('');
+    setSpouseOrder('');
+    setChildOrder('');
+    setSearchQuery('');
+    setFilteredSearchResults([]);
+    setRequesterNote('');
+    setError(null);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults, isLoading: isSearching } = useQuery({
@@ -126,6 +143,7 @@ export function AddRelationshipModal({
       queryClient.invalidateQueries({ queryKey: ['person', personId] });
       queryClient.invalidateQueries({ queryKey: ['graph'] });
       queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
+      resetForm();
       onClose();
     },
     onError: (err) => {
@@ -169,6 +187,7 @@ export function AddRelationshipModal({
       toast.success('Pengajuan berhasil dikirim', {
         description: 'Permintaan penambahan hubungan akan ditinjau oleh editor',
       });
+      resetForm();
       onClose();
     },
     onError: () => {
@@ -336,10 +355,6 @@ export function AddRelationshipModal({
     }
   };
 
-  const [filteredSearchResults, setFilteredSearchResults] = useState<Person[]>(
-    [],
-  );
-
   useEffect(() => {
     if (searchResults) {
       const filtered = searchResults.filter(
@@ -351,27 +366,20 @@ export function AddRelationshipModal({
     }
   }, [searchResults, excludeIds]);
 
-  const resetForm = () => {
-    setSelectedRelationships([]);
-    setCurrentType('PARENT');
-    setCurrentParentRole(undefined);
-    setMarriageDate('');
-    setMarriagePlace('');
-    setSpouseOrder('');
-    setChildOrder('');
-    setSearchQuery('');
-    setFilteredSearchResults([]);
-    setRequesterNote('');
-    setError(null);
-  };
-
   const handleClose = () => {
     resetForm();
     onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleClose();
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tambah Hubungan</DialogTitle>
