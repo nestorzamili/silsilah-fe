@@ -10,11 +10,7 @@ import { getFullName } from '@/utils/person';
 import { UserIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores';
-import {
-  DeletePersonModal,
-  MobileLayout,
-  DesktopLayout,
-} from './components';
+import { DeletePersonModal, MobileLayout, DesktopLayout } from './components';
 
 export function PersonDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,7 +19,7 @@ export function PersonDetailPage() {
   const { user: currentUser } = useAuthStore();
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [isCommentsPanelVisible, setIsCommentsPanelVisible] = useState(true);
-  
+
   const isMember = currentUser?.role === 'member';
 
   const {
@@ -51,7 +47,10 @@ export function PersonDetailPage() {
   const deleteMutation = useMutation({
     mutationFn: () => personService.delete(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PERSONS.LIST(1, 25) });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.PERSONS.LIST(1, 25),
+      });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       navigate('/persons');
     },
   });
@@ -59,7 +58,9 @@ export function PersonDetailPage() {
   const commentMutation = useMutation({
     mutationFn: (content: string) => commentService.create(id!, { content }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.COMMENTS.LIST(id!) });
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.COMMENTS.LIST(id!),
+      });
     },
   });
 
@@ -78,8 +79,13 @@ export function PersonDetailPage() {
   });
 
   const deleteMediaMutation = useMutation({
-    mutationFn: ({ mediaId, requesterNote }: { mediaId: string; requesterNote?: string }) => 
-      mediaService.delete(mediaId, requesterNote),
+    mutationFn: ({
+      mediaId,
+      requesterNote,
+    }: {
+      mediaId: string;
+      requesterNote?: string;
+    }) => mediaService.delete(mediaId, requesterNote),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MEDIA.LIST(id) });
       if (isMember && data && typeof data === 'object' && 'message' in data) {
@@ -129,14 +135,15 @@ export function PersonDetailPage() {
   const comments = commentsData?.data ?? [];
 
   const personName = getFullName(person);
-  const personDescription = person.bio || `Profil ${personName} dalam silsilah keluarga.`;
+  const personDescription =
+    person.bio || `Profil ${personName} dalam silsilah keluarga.`;
   const personKeywords = [
     personName,
     'profil keluarga',
     'silsilah',
     'keluarga',
     'informasi pribadi',
-    'riwayat hidup'
+    'riwayat hidup',
   ];
 
   return (
@@ -164,7 +171,9 @@ export function PersonDetailPage() {
           isSubmittingComment={commentMutation.isPending}
           onDeletePersonClick={() => setDeleteModalOpen(true)}
           onUploadMedia={(file) => uploadMutation.mutate(file)}
-          onDeleteMedia={(mediaId, requesterNote) => deleteMediaMutation.mutate({ mediaId, requesterNote })}
+          onDeleteMedia={(mediaId, requesterNote) =>
+            deleteMediaMutation.mutate({ mediaId, requesterNote })
+          }
           onSubmitComment={(content) => commentMutation.mutate(content)}
         />
 
@@ -180,9 +189,13 @@ export function PersonDetailPage() {
           isCommentsPanelVisible={isCommentsPanelVisible}
           onDeletePersonClick={() => setDeleteModalOpen(true)}
           onUploadMedia={(file) => uploadMutation.mutate(file)}
-          onDeleteMedia={(mediaId, requesterNote) => deleteMediaMutation.mutate({ mediaId, requesterNote })}
+          onDeleteMedia={(mediaId, requesterNote) =>
+            deleteMediaMutation.mutate({ mediaId, requesterNote })
+          }
           onSubmitComment={(content) => commentMutation.mutate(content)}
-          onToggleCommentsPanel={() => setIsCommentsPanelVisible(!isCommentsPanelVisible)}
+          onToggleCommentsPanel={() =>
+            setIsCommentsPanelVisible(!isCommentsPanelVisible)
+          }
         />
 
         <DeletePersonModal

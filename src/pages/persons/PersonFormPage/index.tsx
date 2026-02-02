@@ -14,10 +14,7 @@ import {
   transformFormData,
   type PersonFormData,
 } from './schema';
-import {
-  ProfilePreview,
-  PersonFormContent,
-} from './components';
+import { ProfilePreview, PersonFormContent } from './components';
 
 export function PersonFormPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +22,7 @@ export function PersonFormPage() {
   const { user: currentUser } = useAuthStore();
   const queryClient = useQueryClient();
   const isEditing = Boolean(id);
-  
+
   const form = useForm<PersonFormData>({
     resolver: zodResolver(personSchema),
     defaultValues: defaultFormValues,
@@ -42,6 +39,7 @@ export function PersonFormPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['persons'] });
       queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       navigate(`/persons/${data.id}`);
     },
   });
@@ -53,6 +51,7 @@ export function PersonFormPage() {
       queryClient.invalidateQueries({ queryKey: ['person', id] });
       queryClient.invalidateQueries({ queryKey: ['persons'] });
       queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       navigate(`/persons/${id}`);
     },
   });
@@ -62,7 +61,8 @@ export function PersonFormPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['change-requests'] });
       toast.success('Pengajuan berhasil dikirim', {
-        description: 'Permintaan penambahan orang baru akan ditinjau oleh editor',
+        description:
+          'Permintaan penambahan orang baru akan ditinjau oleh editor',
       });
       navigate('/persons');
     },
@@ -90,16 +90,17 @@ export function PersonFormPage() {
   });
 
   const watchedValues = useWatch({ control: form.control });
-  
-  const canEdit = currentUser?.role === 'editor' || currentUser?.role === 'developer';
+
+  const canEdit =
+    currentUser?.role === 'editor' || currentUser?.role === 'developer';
   const isMember = currentUser?.role === 'member';
-  
+
   useEffect(() => {
-    if (canEdit === false && isMember === false) { 
+    if (canEdit === false && isMember === false) {
       navigate(isEditing ? `/persons/${id}` : '/persons', { replace: true });
     }
   }, [canEdit, isMember, navigate, isEditing, id]);
-  
+
   useEffect(() => {
     if (person) {
       form.reset({
@@ -124,7 +125,7 @@ export function PersonFormPage() {
       });
     }
   }, [person, form]);
-  
+
   if (currentUser === null) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
@@ -132,7 +133,7 @@ export function PersonFormPage() {
       </div>
     );
   }
-  
+
   if (!canEdit && !isMember) {
     return null;
   }
@@ -171,7 +172,11 @@ export function PersonFormPage() {
     if (!file) return;
 
     try {
-      const media = await mediaService.upload(file, id || 'temp', 'Profile Photo');
+      const media = await mediaService.upload(
+        file,
+        id || 'temp',
+        'Profile Photo',
+      );
       form.setValue('avatar_url', media.url);
     } catch {
       console.error('Failed to upload photo');
@@ -179,9 +184,9 @@ export function PersonFormPage() {
   };
 
   const isLoading = isLoadingPerson && isEditing;
-  const isSubmitting = canEdit 
-    ? (createMutation.isPending || updateMutation.isPending)
-    : (createRequestMutation.isPending || updateRequestMutation.isPending);
+  const isSubmitting = canEdit
+    ? createMutation.isPending || updateMutation.isPending
+    : createRequestMutation.isPending || updateRequestMutation.isPending;
   const {
     is_alive: isAlive = true,
     avatar_url: avatarUrl,
@@ -209,11 +214,23 @@ export function PersonFormPage() {
   return (
     <>
       <SEO
-        title={isEditing ? "Edit Orang - Silsilah Keluarga" : "Tambah Orang - Silsilah Keluarga"}
-        description={isEditing 
-          ? "Edit informasi anggota keluarga di sistem silsilah keluarga." 
-          : "Tambahkan anggota keluarga baru ke sistem silsilah keluarga."}
-        keywords={['tambah orang', 'edit orang', 'keluarga', 'silsilah', 'profil']}
+        title={
+          isEditing
+            ? 'Edit Orang - Silsilah Keluarga'
+            : 'Tambah Orang - Silsilah Keluarga'
+        }
+        description={
+          isEditing
+            ? 'Edit informasi anggota keluarga di sistem silsilah keluarga.'
+            : 'Tambahkan anggota keluarga baru ke sistem silsilah keluarga.'
+        }
+        keywords={[
+          'tambah orang',
+          'edit orang',
+          'keluarga',
+          'silsilah',
+          'profil',
+        ]}
         noIndex={true}
         robots="noindex, follow"
       />

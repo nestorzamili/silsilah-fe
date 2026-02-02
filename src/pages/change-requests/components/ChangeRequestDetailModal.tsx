@@ -49,6 +49,9 @@ export function ChangeRequestDetailModal({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['change-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
+      queryClient.invalidateQueries({ queryKey: ['persons'] });
+      queryClient.invalidateQueries({ queryKey: ['graph'] });
       onClose();
     },
   });
@@ -60,6 +63,7 @@ export function ChangeRequestDetailModal({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['change-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       onClose();
     },
   });

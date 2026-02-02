@@ -125,6 +125,7 @@ export function AddRelationshipModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['person', personId] });
       queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       onClose();
     },
     onError: (err) => {

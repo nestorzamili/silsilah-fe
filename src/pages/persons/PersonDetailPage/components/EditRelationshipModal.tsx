@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { relationshipService, personService, changeRequestService } from '@/services';
-import type { UpdateRelationshipInput, ParentMetadata, SpouseMetadata } from '@/types';
+import {
+  relationshipService,
+  personService,
+  changeRequestService,
+} from '@/services';
+import type {
+  UpdateRelationshipInput,
+  ParentMetadata,
+  SpouseMetadata,
+} from '@/types';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +33,6 @@ interface EditRelationshipModalProps {
   relationshipId: string;
 }
 
-
-
 export function EditRelationshipModal({
   open,
   onClose,
@@ -37,9 +43,9 @@ export function EditRelationshipModal({
   const { user: currentUser } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [requesterNote, setRequesterNote] = useState('');
-  
+
   const isMember = currentUser?.role === 'member';
-  
+
   const { data: relationship, isLoading: relationshipLoading } = useQuery({
     queryKey: ['relationship', relationshipId],
     queryFn: () => relationshipService.getById(relationshipId),
@@ -59,7 +65,7 @@ export function EditRelationshipModal({
   });
 
   const formKey = relationship?.id || 'new';
-  
+
   const [parentRole, setParentRole] = useState<'FATHER' | 'MOTHER' | ''>('');
   const [marriageDate, setMarriageDate] = useState('');
   const [marriagePlace, setMarriagePlace] = useState('');
@@ -69,16 +75,24 @@ export function EditRelationshipModal({
   useEffect(() => {
     if (relationship) {
       const metadata = relationship.metadata || {};
-      
+
       if ('role' in metadata) {
         const role = (metadata as { role: string }).role;
         setParentRole(role === 'FATHER' || role === 'MOTHER' ? role : '');
       } else {
         setParentRole('');
       }
-      
-      setMarriageDate('marriage_date' in metadata ? (metadata as { marriage_date: string }).marriage_date || '' : '');
-      setMarriagePlace('marriage_place' in metadata ? (metadata as { marriage_place: string }).marriage_place || '' : '');
+
+      setMarriageDate(
+        'marriage_date' in metadata
+          ? (metadata as { marriage_date: string }).marriage_date || ''
+          : '',
+      );
+      setMarriagePlace(
+        'marriage_place' in metadata
+          ? (metadata as { marriage_place: string }).marriage_place || ''
+          : '',
+      );
       setSpouseOrder(relationship.spouse_order?.toString() || '');
       setChildOrder(relationship.child_order?.toString() || '');
     } else {
@@ -88,7 +102,7 @@ export function EditRelationshipModal({
       setSpouseOrder('');
       setChildOrder('');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formKey]);
 
   const updateMutation = useMutation({
@@ -96,12 +110,17 @@ export function EditRelationshipModal({
       relationshipService.update(relationshipId, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['person', personId] });
-      queryClient.invalidateQueries({ queryKey: ['relationship', relationshipId] });
+      queryClient.invalidateQueries({
+        queryKey: ['relationship', relationshipId],
+      });
       queryClient.invalidateQueries({ queryKey: ['graph'] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
       onClose();
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : 'Gagal mengupdate hubungan');
+      setError(
+        err instanceof Error ? err.message : 'Gagal mengupdate hubungan',
+      );
     },
   });
 
@@ -169,9 +188,9 @@ export function EditRelationshipModal({
     }
   };
 
-
-
-  const relatedPersonName = relatedPerson ? getFullName(relatedPerson) : 'Unknown';
+  const relatedPersonName = relatedPerson
+    ? getFullName(relatedPerson)
+    : 'Unknown';
 
   if (relationshipLoading) {
     return (
@@ -191,7 +210,9 @@ export function EditRelationshipModal({
         <DialogContent className="sm:max-w-md">
           <div className="p-6 text-center">
             <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-amber-500" />
-            <h3 className="mt-3 text-lg font-medium text-slate-900">Hubungan tidak ditemukan</h3>
+            <h3 className="mt-3 text-lg font-medium text-slate-900">
+              Hubungan tidak ditemukan
+            </h3>
             <p className="mt-1 text-sm text-slate-500">
               Hubungan yang ingin Anda edit tidak tersedia.
             </p>
@@ -213,7 +234,8 @@ export function EditRelationshipModal({
           <div>
             <DialogTitle className="text-xl mb-1">Edit Hubungan</DialogTitle>
             <p className="text-sm text-slate-600">
-              Mengedit hubungan dengan <span className="font-medium">{relatedPersonName}</span>
+              Mengedit hubungan dengan{' '}
+              <span className="font-medium">{relatedPersonName}</span>
             </p>
           </div>
         </DialogHeader>
@@ -223,7 +245,9 @@ export function EditRelationshipModal({
             <div className="flex items-start gap-2">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
               <div>
-                <p className="text-sm font-medium text-red-800">Gagal mengupdate hubungan</p>
+                <p className="text-sm font-medium text-red-800">
+                  Gagal mengupdate hubungan
+                </p>
                 <p className="mt-1 text-sm text-red-600">{error}</p>
               </div>
             </div>
@@ -234,7 +258,9 @@ export function EditRelationshipModal({
           {relationship.type === 'PARENT' && (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium text-slate-700">Peran Orang Tua</Label>
+                <Label className="text-sm font-medium text-slate-700">
+                  Peran Orang Tua
+                </Label>
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   <Button
                     type="button"
@@ -256,7 +282,10 @@ export function EditRelationshipModal({
               </div>
 
               <div>
-                <Label htmlFor="childOrder" className="text-sm font-medium text-slate-700">
+                <Label
+                  htmlFor="childOrder"
+                  className="text-sm font-medium text-slate-700"
+                >
                   Urutan Anak (Opsional)
                 </Label>
                 <Input
@@ -279,7 +308,10 @@ export function EditRelationshipModal({
           {relationship.type === 'SPOUSE' && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="marriageDate" className="text-sm font-medium text-slate-700">
+                <Label
+                  htmlFor="marriageDate"
+                  className="text-sm font-medium text-slate-700"
+                >
                   Tanggal Menikah (Opsional)
                 </Label>
                 <Input
@@ -292,7 +324,10 @@ export function EditRelationshipModal({
               </div>
 
               <div>
-                <Label htmlFor="marriagePlace" className="text-sm font-medium text-slate-700">
+                <Label
+                  htmlFor="marriagePlace"
+                  className="text-sm font-medium text-slate-700"
+                >
                   Tempat Menikah (Opsional)
                 </Label>
                 <Input
@@ -306,7 +341,10 @@ export function EditRelationshipModal({
               </div>
 
               <div>
-                <Label htmlFor="spouseOrder" className="text-sm font-medium text-slate-700">
+                <Label
+                  htmlFor="spouseOrder"
+                  className="text-sm font-medium text-slate-700"
+                >
                   Urutan Pernikahan (Opsional)
                 </Label>
                 <Input
@@ -329,10 +367,15 @@ export function EditRelationshipModal({
                   <div className="flex items-start gap-2">
                     <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
                     <div>
-                      <p className="font-medium text-amber-800">Hubungan Sedarah</p>
+                      <p className="font-medium text-amber-800">
+                        Hubungan Sedarah
+                      </p>
                       <p className="text-sm text-amber-600">
                         Pasangan ini memiliki hubungan sedarah tingkat{' '}
-                        {(relationship.metadata as SpouseMetadata).consanguinity_degree}
+                        {
+                          (relationship.metadata as SpouseMetadata)
+                            .consanguinity_degree
+                        }
                       </p>
                     </div>
                   </div>
@@ -343,7 +386,10 @@ export function EditRelationshipModal({
 
           {isMember && (
             <div className="border-t border-slate-200 pt-4">
-              <Label htmlFor="requesterNote" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="requesterNote"
+                className="text-sm font-medium text-slate-700"
+              >
                 Keterangan (Opsional)
               </Label>
               <Textarea
@@ -372,16 +418,20 @@ export function EditRelationshipModal({
             </Button>
             <Button
               type="submit"
-              disabled={updateMutation.isPending || createRequestMutation.isPending}
+              disabled={
+                updateMutation.isPending || createRequestMutation.isPending
+              }
               className="flex-1 bg-emerald-600 hover:bg-emerald-700"
             >
-              {(updateMutation.isPending || createRequestMutation.isPending) ? (
+              {updateMutation.isPending || createRequestMutation.isPending ? (
                 <>
                   <Spinner size="sm" className="mr-2" />
                   {isMember ? 'Mengirim Pengajuan...' : 'Menyimpan...'}
                 </>
+              ) : isMember ? (
+                'Ajukan Perubahan'
               ) : (
-                isMember ? 'Ajukan Perubahan' : 'Simpan'
+                'Simpan'
               )}
             </Button>
           </div>
