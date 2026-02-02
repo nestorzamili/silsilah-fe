@@ -143,10 +143,20 @@ export function ProfileSidebar({ person, onDeleteClick }: ProfileSidebarProps) {
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">
                 {fullName}
               </h1>
-              {age !== null && (
-                <p className="mt-1 text-sm text-slate-500">
-                  {age} tahun{!person.is_alive ? ' (meninggal)' : ''}
-                </p>
+              {(person.nickname || age !== null) && (
+                <div className="mt-1 flex items-center justify-center gap-2 text-sm text-slate-500">
+                  {person.nickname && (
+                    <span className="italic">"{person.nickname}"</span>
+                  )}
+                  {person.nickname && age !== null && (
+                    <span className="text-slate-300">•</span>
+                  )}
+                  {age !== null && (
+                    <span>
+                      {age} tahun{!person.is_alive ? ' (meninggal)' : ''}
+                    </span>
+                  )}
+                </div>
               )}
               <div className="mt-1">
                 <span

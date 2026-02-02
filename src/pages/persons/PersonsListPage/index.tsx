@@ -60,8 +60,9 @@ export function PersonsListPage() {
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
   const pageSize = 25;
-  
-  const canAdd = currentUser?.role === 'editor' || currentUser?.role === 'developer';
+
+  const canAdd =
+    currentUser?.role === 'editor' || currentUser?.role === 'developer';
 
   const debouncedSearch = useDebounce(searchInput.trim(), 300);
 
@@ -124,7 +125,13 @@ export function PersonsListPage() {
       <SEO
         title="Daftar Anggota Keluarga - Silsilah Keluarga"
         description={`Daftar ${totalItems} anggota keluarga dalam sistem silsilah keluarga. Cari dan jelajahi profil keluarga Anda secara lengkap.`}
-        keywords={['daftar anggota', 'keluarga', 'silsilah', 'profil keluarga', 'cari orang']}
+        keywords={[
+          'daftar anggota',
+          'keluarga',
+          'silsilah',
+          'profil keluarga',
+          'cari orang',
+        ]}
         canonical="https://silsilah.zamili.dev/persons"
       />
       <div className="flex flex-1 flex-col overflow-hidden bg-slate-50">
@@ -143,8 +150,18 @@ export function PersonsListPage() {
                 onClick={() => navigate('/persons/new')}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
                 Tambah Orang
               </button>
@@ -184,36 +201,43 @@ export function PersonsListPage() {
                 <Link
                   key={person.id}
                   to={`/persons/${person.id}`}
-                  className="group flex flex-col rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-emerald-300 hover:shadow-sm hover:bg-emerald-50/30"
+                  className="group flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-emerald-300 hover:shadow-sm hover:bg-emerald-50/30"
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    <Avatar className="hidden sm:block h-12 w-12 shrink-0">
-                      <AvatarImage
-                        src={person.avatar_url}
-                        alt={getFullName(person)}
-                      />
-                      <AvatarFallback className="bg-emerald-50 text-sm font-medium text-emerald-600">
-                        {getFullName(person).charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-sm font-medium text-slate-900 group-hover:text-emerald-600">
-                        {getFullName(person)}
-                      </h3>
+                  <Avatar className="hidden sm:block h-12 w-12 shrink-0">
+                    <AvatarImage
+                      src={person.avatar_url}
+                      alt={getFullName(person)}
+                    />
+                    <AvatarFallback className="bg-emerald-50 text-sm font-medium text-emerald-600">
+                      {getFullName(person).charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-medium text-slate-900 group-hover:text-emerald-600">
+                      {getFullName(person)}
+                    </h3>
+                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-xs text-slate-500">
+                      {person.nickname && (
+                        <>
+                          <span className="italic truncate max-w-25">
+                            "{person.nickname}"
+                          </span>
+                          <span className="text-slate-300">•</span>
+                        </>
+                      )}
+                      <span>
+                        {person.birth_date
+                          ? new Date(person.birth_date).getFullYear()
+                          : '—'}
+                      </span>
+                      <span className="text-slate-300">•</span>
+                      <Badge
+                        variant={person.is_alive ? 'secondary' : 'outline'}
+                        className="h-4 px-1.5 text-[10px]"
+                      >
+                        {person.is_alive ? 'Hidup' : 'Meninggal'}
+                      </Badge>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-slate-500">
-                      {person.birth_date
-                        ? new Date(person.birth_date).getFullYear()
-                        : '—'}
-                    </span>
-                    <Badge
-                      variant={person.is_alive ? 'secondary' : 'outline'}
-                      className="h-5 px-1.5 text-[10px]"
-                    >
-                      {person.is_alive ? 'Hidup' : 'Meninggal'}
-                    </Badge>
                   </div>
                 </Link>
               ))}

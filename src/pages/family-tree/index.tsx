@@ -98,7 +98,13 @@ export function FamilyTreePage() {
         <SEO
           title="Pohon Keluarga - Silsilah Keluarga"
           description="Bangun pohon keluarga Anda. Tambahkan anggota keluarga pertama untuk memulai membuat silsilah keluarga secara digital."
-          keywords={['pohon keluarga', 'silsilah', 'keluarga', 'grafik keluarga', 'visualisasi keluarga']}
+          keywords={[
+            'pohon keluarga',
+            'silsilah',
+            'keluarga',
+            'grafik keluarga',
+            'visualisasi keluarga',
+          ]}
           canonical="https://silsilah.zamili.dev/tree"
         />
         <div className="flex flex-1 items-center justify-center p-6">
@@ -121,7 +127,14 @@ export function FamilyTreePage() {
       <SEO
         title="Pohon Keluarga - Silsilah Keluarga"
         description="Jelajahi pohon keluarga Anda secara interaktif. Visualisasikan hubungan keluarga dan silsilah keluarga secara digital."
-        keywords={['pohon keluarga', 'silsilah', 'keluarga', 'grafik keluarga', 'visualisasi keluarga', 'hubungan keluarga']}
+        keywords={[
+          'pohon keluarga',
+          'silsilah',
+          'keluarga',
+          'grafik keluarga',
+          'visualisasi keluarga',
+          'hubungan keluarga',
+        ]}
         canonical="https://silsilah.zamili.dev/tree"
       />
       <div className="flex flex-1 overflow-hidden">
@@ -132,11 +145,7 @@ export function FamilyTreePage() {
             style={{ cursor: 'grab' }}
           />
 
-          <div className="absolute left-6 top-6 rounded-lg border border-slate-200 bg-white/90 px-3 py-1.5 backdrop-blur-sm">
-            <span className="text-sm font-medium text-slate-600">
-              {Math.round(transform.k * 100)}%
-            </span>
-          </div>
+          <TreeLegend />
 
           <TreeControls
             onZoomIn={handleZoomIn}
@@ -144,8 +153,6 @@ export function FamilyTreePage() {
             onFit={handleResetView}
             zoomLevel={transform.k}
           />
-
-          <TreeLegend />
         </div>
 
         {selectedNodeId && (

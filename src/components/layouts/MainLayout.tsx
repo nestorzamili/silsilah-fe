@@ -11,7 +11,6 @@ import {
   HomeIcon,
   UsersIcon,
   ChartBarIcon,
-  Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
   XMarkIcon,
@@ -22,6 +21,7 @@ import {
   UserGroupIcon,
   DocumentCheckIcon,
   BellIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 
 const navigation = [
@@ -275,17 +275,6 @@ export function MainLayout() {
                       <UserCircleIcon className="h-4 w-4" />
                       Profil Saya
                     </Link>
-                    <Link
-                      to="/settings"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        setSidebarOpen(false);
-                      }}
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
-                    >
-                      <Cog6ToothIcon className="h-4 w-4" />
-                      Pengaturan
-                    </Link>
 
                     {user?.role === 'developer' && (
                       <Link
@@ -301,6 +290,18 @@ export function MainLayout() {
                       </Link>
                     )}
 
+                    <div className="my-1 border-t border-emerald-50" />
+                    <Link
+                      to="/about"
+                      onClick={() => {
+                        setUserMenuOpen(false);
+                        setSidebarOpen(false);
+                      }}
+                      className="flex items-center gap-2.5 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                    >
+                      <InformationCircleIcon className="h-4 w-4" />
+                      Tentang Silsilah
+                    </Link>
                     <div className="my-1 border-t border-emerald-50" />
                     <button
                       onClick={handleLogout}

@@ -9,7 +9,10 @@ interface ProtectedRouteProps {
   requiredRole?: 'member' | 'editor' | 'developer';
 }
 
-export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  requiredRole,
+}: ProtectedRouteProps) {
   const navigate = useNavigate();
   const { isAuthenticated, user, isHydrated } = useAuthStore();
   const { data: profileData } = useUserProfile();
@@ -19,18 +22,17 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
       if (!isHydrated) return;
 
       if (!isAuthenticated) {
-        if (window.location.pathname !== '/login') {
-          toast.error('Silakan masuk terlebih dahulu');
-        }
         navigate('/login', { replace: true });
         return;
       }
 
       if (requiredRole && user) {
-        const hasPermission = user.role === requiredRole || 
+        const hasPermission =
+          user.role === requiredRole ||
           (requiredRole === 'editor' && user.role === 'developer') ||
-          (requiredRole === 'member' && (user.role === 'editor' || user.role === 'developer'));
-        
+          (requiredRole === 'member' &&
+            (user.role === 'editor' || user.role === 'developer'));
+
         if (!hasPermission) {
           toast.error('Anda tidak memiliki izin untuk mengakses halaman ini');
           navigate('/', { replace: true });
@@ -55,10 +57,12 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   }
 
   if (isAuthenticated && requiredRole && user) {
-    const hasPermission = user.role === requiredRole || 
+    const hasPermission =
+      user.role === requiredRole ||
       (requiredRole === 'editor' && user.role === 'developer') ||
-      (requiredRole === 'member' && (user.role === 'editor' || user.role === 'developer'));
-    
+      (requiredRole === 'member' &&
+        (user.role === 'editor' || user.role === 'developer'));
+
     if (!hasPermission) {
       return (
         <div className="flex min-h-screen items-center justify-center">

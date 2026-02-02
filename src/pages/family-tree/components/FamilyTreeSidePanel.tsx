@@ -61,7 +61,8 @@ export function FamilyTreeSidePanel({
   const name = getSidePanelName(person);
 
   // Check if user has permission to edit (editor or developer)
-  const canEdit = currentUser?.role === 'editor' || currentUser?.role === 'developer';
+  const canEdit =
+    currentUser?.role === 'editor' || currentUser?.role === 'developer';
 
   if (loading) {
     return (
@@ -103,15 +104,30 @@ export function FamilyTreeSidePanel({
             <h4 className="text-xl font-bold text-slate-900 tracking-tight">
               {name}
             </h4>
-            {person.birth_date && (
-              <p className="mt-1 text-sm text-slate-500">
-                {calculateAge(person.birth_date, person.death_date)} tahun{!person.is_alive ? ' (meninggal)' : ''}
-              </p>
+            {(person.nickname || person.birth_date) && (
+              <div className="mt-1 flex items-center justify-center gap-2 text-sm text-slate-500">
+                {person.nickname && (
+                  <span className="italic">"{person.nickname}"</span>
+                )}
+                {person.nickname && person.birth_date && (
+                  <span className="text-slate-300">•</span>
+                )}
+                {person.birth_date && (
+                  <span>
+                    {calculateAge(person.birth_date, person.death_date)} tahun
+                    {!person.is_alive ? ' (meninggal)' : ''}
+                  </span>
+                )}
+              </div>
             )}
             <div className="mt-2">
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${person.is_alive ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>
-                <span className={`mr-1.5 h-2 w-2 rounded-full ${person.is_alive ? "bg-emerald-500" : "bg-slate-400"}`}></span>
-                {person.is_alive ? "Masih Hidup" : "Meninggal"}
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${person.is_alive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}
+              >
+                <span
+                  className={`mr-1.5 h-2 w-2 rounded-full ${person.is_alive ? 'bg-emerald-500' : 'bg-slate-400'}`}
+                ></span>
+                {person.is_alive ? 'Masih Hidup' : 'Meninggal'}
               </span>
             </div>
           </div>
@@ -181,9 +197,13 @@ export function FamilyTreeSidePanel({
         </div>
 
         <div className="p-5">
-          <div className={canEdit ? "grid grid-cols-2 gap-3" : ""}>
+          <div className={canEdit ? 'grid grid-cols-2 gap-3' : ''}>
             <Button
-              className={canEdit ? "w-full bg-emerald-600 hover:bg-emerald-700 text-white" : "w-full bg-emerald-600 hover:bg-emerald-700 text-white"}
+              className={
+                canEdit
+                  ? 'w-full bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'w-full bg-emerald-600 hover:bg-emerald-700 text-white'
+              }
               onClick={() => navigate(`/persons/${person.id}`)}
             >
               Lihat Profil

@@ -91,14 +91,31 @@ export function renderNodes(
     }
 
     const fullName = getFullName(node);
+    const hasNickname = node.nickname && node.nickname.trim() !== '';
+
+    // Adjust vertical position based on whether there's a nickname
+    const nameY = hasNickname ? NODE_HEIGHT / 2 - 3 : NODE_HEIGHT / 2 + 4;
+
     nodeGroup
       .append('text')
       .attr('x', 75)
-      .attr('y', NODE_HEIGHT / 2 + 4)
+      .attr('y', nameY)
       .attr('font-size', 13)
       .attr('font-weight', 600)
       .attr('fill', '#1e293b')
       .text(fullName);
+
+    // Add nickname below the name if exists
+    if (hasNickname) {
+      nodeGroup
+        .append('text')
+        .attr('x', 75)
+        .attr('y', NODE_HEIGHT / 2 + 12)
+        .attr('font-size', 11)
+        .attr('font-style', 'italic')
+        .attr('fill', '#64748b')
+        .text(`"${node.nickname}"`);
+    }
 
     nodeGroup
       .on('mouseenter', function () {

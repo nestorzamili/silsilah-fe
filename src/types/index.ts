@@ -35,7 +35,13 @@ export interface RoleUsers {
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'CHANGE_REQUEST' | 'CHANGE_APPROVED' | 'CHANGE_REJECTED' | 'NEW_COMMENT' | 'PERSON_ADDED' | 'RELATIONSHIP_ADDED';
+  type:
+    | 'CHANGE_REQUEST'
+    | 'CHANGE_APPROVED'
+    | 'CHANGE_REJECTED'
+    | 'NEW_COMMENT'
+    | 'PERSON_ADDED'
+    | 'RELATIONSHIP_ADDED';
   title: string;
   message: string;
   data?: {
@@ -253,6 +259,7 @@ export interface GraphNode {
   id: string;
   first_name: string;
   last_name?: string;
+  nickname?: string;
   gender: Gender;
   avatar_url?: string;
   is_alive: boolean;

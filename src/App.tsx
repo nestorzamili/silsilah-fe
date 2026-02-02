@@ -5,7 +5,10 @@ import { Toaster } from 'sonner';
 
 import { MainLayout } from '@/components/layouts/MainLayout';
 import { AuthLayout } from '@/components/layouts/AuthLayout';
-import { ProtectedRoute, PublicOnlyRoute } from '@/components/auth/ProtectedRoute';
+import {
+  ProtectedRoute,
+  PublicOnlyRoute,
+} from '@/components/auth/ProtectedRoute';
 
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
@@ -16,15 +19,24 @@ const ResendVerificationPage = lazy(
   () => import('@/pages/auth/ResendVerificationPage'),
 );
 const ProfilePage = lazy(() => import('@/pages/auth/ProfilePage'));
-const EmailVerificationPage = lazy(() => import('@/pages/auth/EmailVerificationPage'));
+const EmailVerificationPage = lazy(
+  () => import('@/pages/auth/EmailVerificationPage'),
+);
 const UserManagementPage = lazy(() => import('@/pages/UserManagementPage'));
 const DashboardPage = lazy(() => import('@/pages/dashboard'));
 const FamilyTreePage = lazy(() => import('@/pages/family-tree'));
 const PersonDetailPage = lazy(() => import('@/pages/persons/PersonDetailPage'));
 const PersonsListPage = lazy(() => import('@/pages/persons/PersonsListPage'));
 const PersonFormPage = lazy(() => import('@/pages/persons/PersonFormPage'));
-const ChangeRequestsPage = lazy(() => import('@/pages/change-requests/ChangeRequestsPage'));
-const NotificationsPage = lazy(() => import('@/pages/notifications/NotificationsPage'));
+const ChangeRequestsPage = lazy(
+  () => import('@/pages/change-requests/ChangeRequestsPage'),
+);
+const NotificationsPage = lazy(
+  () => import('@/pages/notifications/NotificationsPage'),
+);
+const TermsPage = lazy(() => import('@/pages/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('@/pages/legal/PrivacyPage'));
+const AboutPage = lazy(() => import('@/pages/about/AboutPage'));
 
 const NotFoundPage = lazy(() => import('@/pages/not-found'));
 
@@ -48,8 +60,8 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Toaster 
-        position="bottom-right" 
+      <Toaster
+        position="bottom-right"
         richColors
         toastOptions={{
           duration: 3000,
@@ -57,31 +69,39 @@ export default function App() {
       />
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          <Route element={
-            <PublicOnlyRoute>
-              <AuthLayout>
-                <Outlet />
-              </AuthLayout>
-            </PublicOnlyRoute>
-          }>
+          <Route
+            element={
+              <PublicOnlyRoute>
+                <AuthLayout>
+                  <Outlet />
+                </AuthLayout>
+              </PublicOnlyRoute>
+            }
+          >
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/resend-verification" element={<ResendVerificationPage />} />
+            <Route
+              path="/resend-verification"
+              element={<ResendVerificationPage />}
+            />
           </Route>
 
-          <Route path="/verify-email" element={
-            <AuthLayout>
-              <EmailVerificationPage />
-            </AuthLayout>
-          } />
+          <Route
+            path="/verify-email"
+            element={
+              <AuthLayout>
+                <EmailVerificationPage />
+              </AuthLayout>
+            }
+          />
 
           <Route
-            element={(
+            element={
               <ProtectedRoute>
                 <MainLayout />
               </ProtectedRoute>
-            )}
+            }
           >
             <Route path="/" element={<DashboardPage />} />
             <Route path="/tree" element={<FamilyTreePage />} />
@@ -91,14 +111,15 @@ export default function App() {
             <Route path="/persons/:id" element={<PersonDetailPage />} />
             <Route path="/persons/:id/edit" element={<PersonFormPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/about" element={<AboutPage />} />
           </Route>
-          
+
           <Route
-            element={(
+            element={
               <ProtectedRoute requiredRole="editor">
                 <MainLayout />
               </ProtectedRoute>
-            )}
+            }
           >
             <Route path="/change-requests" element={<ChangeRequestsPage />} />
           </Route>
@@ -112,6 +133,10 @@ export default function App() {
           >
             <Route path="/admin/users" element={<UserManagementPage />} />
           </Route>
+
+          {/* Public pages */}
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
