@@ -83,15 +83,19 @@ export function renderParentEdgesWithFamilyUnits(
           if (prevSpousePos) {
             const prevCenter = prevSpousePos.x + prevSpouseWidth / 2;
             const d1 = Math.abs(p1Center - prevCenter);
-            const d2 = Math.abs(p2Center - prevCenter);
+          const d2 = Math.abs(p2Center - prevCenter);
 
-            const targetX = d1 > d2 ? p1Center : p2Center;
-            startX = prevCenter;
-            endX = targetX;
-          }
+          const targetX = d1 > d2 ? p1Center : p2Center;
+          startX = prevCenter;
+          endX = targetX;
+        }
 
-          familyCenterX = (startX + endX) / 2;
-          parentY = Math.max(parent1Pos.y, parent2Pos.y) + NODE_HEIGHT;
+        const minX = Math.min(startX, endX);
+        const maxX = Math.max(startX, endX);
+        const desiredCenter = (p1Center + p2Center) / 2;
+        familyCenterX = Math.max(minX, Math.min(maxX, desiredCenter));
+        
+        parentY = Math.max(parent1Pos.y, parent2Pos.y) + NODE_HEIGHT;
         }
       }
 
