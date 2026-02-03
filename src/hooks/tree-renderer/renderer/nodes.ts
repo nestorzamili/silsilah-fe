@@ -1,8 +1,11 @@
 import * as d3 from 'd3';
 import type { GraphNode } from '@/types';
 import type { NodePosition } from '../types';
-import { MIN_NODE_WIDTH, NODE_HEIGHT } from '../constants';
+import { MIN_NODE_WIDTH, NODE_HEIGHT, BASE_TEXT_OFFSET } from '../constants';
 import { getFullName, getGenderColors } from '../utils';
+
+// Padding from the right edge of the card
+const TEXT_RIGHT_PADDING = 12;
 
 export function renderNodes(
   g: d3.Selection<SVGGElement, unknown, null, undefined>,
@@ -93,27 +96,51 @@ export function renderNodes(
     const fullName = getFullName(node);
     const hasNickname = node.nickname && node.nickname.trim() !== '';
 
-    // Adjust vertical position based on whether there's a nickname
-    const nameY = hasNickname ? NODE_HEIGHT / 2 - 3 : NODE_HEIGHT / 2 + 4;
+    // Calculate text area dimensions
+    const textAreaWidth = nodeWidth - BASE_TEXT_OFFSET - TEXT_RIGHT_PADDING;
+    const textAreaHeight = NODE_HEIGHT - 16; // Padding top and bottom
+    const textStartX = BASE_TEXT_OFFSET;
+    const textStartY = 8;
 
-    nodeGroup
-      .append('text')
-      .attr('x', 75)
-      .attr('y', nameY)
-      .attr('font-size', 13)
-      .attr('font-weight', 600)
-      .attr('fill', '#1e293b')
+    // Use foreignObject to enable text wrapping
+    const foreignObject = nodeGroup
+      .append('foreignObject')
+      .attr('x', textStartX)
+      .attr('y', textStartY)
+      .attr('width', textAreaWidth)
+      .attr('height', textAreaHeight);
+
+    const textContainer = foreignObject
+      .append('xhtml:div')
+      .style('width', '100%')
+      .style('height', '100%')
+      .style('display', 'flex')
+      .style('flex-direction', 'column')
+      .style('justify-content', 'center')
+      .style('overflow', 'hidden');
+
+    // Name with wrapping (max 2 lines)
+    textContainer
+      .append('xhtml:div')
+      .style('font-size', '13px')
+      .style('font-weight', '600')
+      .style('color', '#1e293b')
+      .style('line-height', '1.2')
+      .style('overflow', 'hidden')
+      .style('word-break', 'break-word')
       .text(fullName);
 
     // Add nickname below the name if exists
     if (hasNickname) {
-      nodeGroup
-        .append('text')
-        .attr('x', 75)
-        .attr('y', NODE_HEIGHT / 2 + 12)
-        .attr('font-size', 11)
-        .attr('font-style', 'italic')
-        .attr('fill', '#64748b')
+      textContainer
+        .append('xhtml:div')
+        .style('font-size', '11px')
+        .style('font-style', 'italic')
+        .style('color', '#64748b')
+        .style('line-height', '1.2')
+        .style('margin-top', '2px')
+        .style('overflow', 'hidden')
+        .style('word-break', 'break-word')
         .text(`"${node.nickname}"`);
     }
 

@@ -21,7 +21,10 @@ export const graphService = {
     return data;
   },
 
-  async getSplitAncestors(personId: string, maxDepth = 10): Promise<SplitAncestorTree> {
+  async getSplitAncestors(
+    personId: string,
+    maxDepth = 10,
+  ): Promise<SplitAncestorTree> {
     const { data } = await apiClient.get<SplitAncestorTree>(
       `/graph/ancestors/${personId}/split`,
       { params: { max_depth: maxDepth } },
@@ -44,11 +47,6 @@ export const graphService = {
     const { data } = await apiClient.get<RelationshipPath>('/graph/path', {
       params: { from: fromId, to: toId },
     });
-    return data;
-  },
-
-  async getPublicGraph(): Promise<FamilyGraph> {
-    const { data } = await apiClient.get<FamilyGraph>('/public/graph');
     return data;
   },
 };

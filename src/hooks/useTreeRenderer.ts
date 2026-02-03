@@ -84,7 +84,7 @@ export function useTreeRenderer({
     );
 
     const { nodePositions, nodeWidths, familyUnits, spouseEdgeInfo } =
-      calculateTreeLayout(filteredNodes, filteredEdges);
+      calculateTreeLayout(filteredNodes, filteredEdges, graph.groups);
 
     const spouseEdges = filteredEdges.filter((e) => e.type === 'SPOUSE');
 

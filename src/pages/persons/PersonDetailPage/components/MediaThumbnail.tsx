@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Media } from '@/types';
 import { PlayCircleIcon } from '@heroicons/react/24/outline';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface MediaThumbnailProps {
   item: Media;
@@ -16,14 +16,11 @@ export function MediaThumbnail({
   onDelete,
   isDeleting,
 }: MediaThumbnailProps) {
-  const { user: currentUser } = useAuthStore();
+  const { canModify, isOwner } = usePermissions();
   const isVideo = item.mime_type?.startsWith('video/');
   const [showDelete, setShowDelete] = useState(false);
-  
-  const canDelete = currentUser?.role === 'member' ||
-                    currentUser?.id === item.uploaded_by || 
-                    currentUser?.role === 'editor' || 
-                    currentUser?.role === 'developer';
+
+  const canDelete = canModify || isOwner(item.uploaded_by);
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -36,10 +33,7 @@ export function MediaThumbnail({
       onMouseEnter={() => setShowDelete(true)}
       onMouseLeave={() => setShowDelete(false)}
     >
-      <button
-        onClick={onClick}
-        className="h-full w-full"
-      >
+      <button onClick={onClick} className="h-full w-full">
         {isVideo ? (
           <>
             <video

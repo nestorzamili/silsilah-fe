@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { PersonWithRelationships } from '@/types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getFullName, calculateAge } from '@/utils/person';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   PencilIcon,
   TrashIcon,
@@ -43,14 +43,9 @@ function getGenderLabel(gender: string): string {
 
 export function ProfileSidebar({ person, onDeleteClick }: ProfileSidebarProps) {
   const navigate = useNavigate();
-  const { user: currentUser } = useAuthStore();
+  const { canEdit, isMember, canModify } = usePermissions();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Check if user has permission to edit (editor or developer)
-  const canEdit =
-    currentUser?.role === 'editor' || currentUser?.role === 'developer';
-  const isMember = currentUser?.role === 'member';
-  const canModify = canEdit || isMember;
   const fullName = getFullName(person);
   const age = person.birth_date
     ? calculateAge(person.birth_date, person.death_date)
@@ -66,11 +61,9 @@ export function ProfileSidebar({ person, onDeleteClick }: ProfileSidebarProps) {
   };
 
   return (
-    <div className="h-full">
-      <div className="h-full bg-white shadow-2xl shadow-emerald-900/10">
-        {/* Profile Header */}
+    <div className="h-full flex flex-col bg-white shadow-2xl shadow-emerald-900/10 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         <div className="relative border-b border-slate-100 px-6 pb-6 pt-8">
-          {/* Three Dot Menu */}
           <div className="absolute right-3 top-3">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
@@ -129,7 +122,7 @@ export function ProfileSidebar({ person, onDeleteClick }: ProfileSidebarProps) {
           <div className="flex flex-col items-center">
             <div className="relative mb-1">
               <div className="relative">
-                <Avatar className="h-36 w-36 border-4 border-white shadow-xl ring-1 ring-slate-100">
+                <Avatar className="h-30 w-30 border-4 border-white shadow-xl ring-1 ring-slate-100">
                   <AvatarImage src={person.avatar_url} alt={fullName} />
                   <AvatarFallback className="bg-linear-to-br from-emerald-50 to-emerald-100 text-4xl font-medium text-emerald-700">
                     {fullName.charAt(0)}
@@ -144,21 +137,14 @@ export function ProfileSidebar({ person, onDeleteClick }: ProfileSidebarProps) {
                 {fullName}
               </h1>
               {(person.nickname || age !== null) && (
-                <div className="mt-1 flex items-center justify-center gap-2 text-sm text-slate-500">
+                <div className="mt-1 flex flex-col items-center gap-1 text-sm text-slate-500">
                   {person.nickname && (
                     <span className="italic">"{person.nickname}"</span>
                   )}
-                  {person.nickname && age !== null && (
-                    <span className="text-slate-300">•</span>
-                  )}
-                  {age !== null && (
-                    <span>
-                      {age} tahun{!person.is_alive ? ' (meninggal)' : ''}
-                    </span>
-                  )}
+                  {age !== null && <span>{age} tahun</span>}
                 </div>
               )}
-              <div className="mt-1">
+              <div className="mt-2">
                 <span
                   className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${person.is_alive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}
                 >

@@ -19,12 +19,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/Spinner';
 import { getFullName } from '@/utils/person';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { RelationshipErrorDisplay } from './RelationshipErrorDisplay';
+import { RequesterNoteField } from './RequesterNoteField';
+import { useRelationshipForm } from '../hooks/useRelationshipForm';
+import type { RelationshipFormState } from '../types/relationshipForm';
 
 interface EditRelationshipModalProps {
   open: boolean;
@@ -40,11 +43,15 @@ export function EditRelationshipModal({
   relationshipId,
 }: EditRelationshipModalProps) {
   const queryClient = useQueryClient();
-  const { user: currentUser } = useAuthStore();
+  const { isMember } = usePermissions();
   const [error, setError] = useState<string | null>(null);
-  const [requesterNote, setRequesterNote] = useState('');
 
-  const isMember = currentUser?.role === 'member';
+  const {
+    formState,
+    setRequesterNote,
+    updateFormState,
+    resetForm: resetFormState,
+  } = useRelationshipForm();
 
   const { data: relationship, isLoading: relationshipLoading } = useQuery({
     queryKey: ['relationship', relationshipId],
@@ -66,41 +73,63 @@ export function EditRelationshipModal({
 
   const formKey = relationship?.id || 'new';
 
-  const [parentRole, setParentRole] = useState<'FATHER' | 'MOTHER' | ''>('');
-  const [marriageDate, setMarriageDate] = useState('');
-  const [marriagePlace, setMarriagePlace] = useState('');
-  const [spouseOrder, setSpouseOrder] = useState('');
-  const [childOrder, setChildOrder] = useState('');
+  // Helper functions to update form state
+  const handleParentRoleChange = (role: 'FATHER' | 'MOTHER' | undefined) => {
+    updateFormState({ parentRole: role });
+  };
+
+  const handleChildOrderChange = (value: string) => {
+    updateFormState({ childOrder: value });
+  };
+
+  const handleMarriageDateChange = (value: string) => {
+    updateFormState({ marriageDate: value });
+  };
+
+  const handleMarriagePlaceChange = (value: string) => {
+    updateFormState({ marriagePlace: value });
+  };
+
+  const handleSpouseOrderChange = (value: string) => {
+    updateFormState({ spouseOrder: value });
+  };
 
   useEffect(() => {
     if (relationship) {
       const metadata = relationship.metadata || {};
 
+      // Build initial values
+      const initialValues: Partial<RelationshipFormState> = {
+        spouseOrder: relationship.spouse_order?.toString() || '',
+        childOrder: relationship.child_order?.toString() || '',
+      };
+
       if ('role' in metadata) {
         const role = (metadata as { role: string }).role;
-        setParentRole(role === 'FATHER' || role === 'MOTHER' ? role : '');
-      } else {
-        setParentRole('');
+        if (role === 'FATHER' || role === 'MOTHER') {
+          initialValues.parentRole = role;
+        }
       }
 
-      setMarriageDate(
+      initialValues.marriageDate =
         'marriage_date' in metadata
           ? (metadata as { marriage_date: string }).marriage_date || ''
-          : '',
-      );
-      setMarriagePlace(
+          : '';
+      initialValues.marriagePlace =
         'marriage_place' in metadata
           ? (metadata as { marriage_place: string }).marriage_place || ''
-          : '',
-      );
-      setSpouseOrder(relationship.spouse_order?.toString() || '');
-      setChildOrder(relationship.child_order?.toString() || '');
+          : '';
+
+      // Re-initialize the form with the correct values
+      updateFormState({
+        parentRole: initialValues.parentRole,
+        marriageDate: initialValues.marriageDate,
+        marriagePlace: initialValues.marriagePlace,
+        spouseOrder: initialValues.spouseOrder,
+        childOrder: initialValues.childOrder,
+      });
     } else {
-      setParentRole('');
-      setMarriageDate('');
-      setMarriagePlace('');
-      setSpouseOrder('');
-      setChildOrder('');
+      resetFormState();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formKey]);
@@ -147,19 +176,21 @@ export function EditRelationshipModal({
     const input: UpdateRelationshipInput = {};
 
     if (relationship?.type === 'PARENT') {
-      if (parentRole) {
-        const metadata: ParentMetadata = { role: parentRole };
+      if (formState.parentRole) {
+        const metadata: ParentMetadata = { role: formState.parentRole };
         input.metadata = metadata;
       }
-      if (childOrder) {
-        input.child_order = parseInt(childOrder);
+      if (formState.childOrder) {
+        input.child_order = parseInt(formState.childOrder);
       }
     }
 
     if (relationship?.type === 'SPOUSE') {
       const metadata: SpouseMetadata = {};
-      if (marriageDate) metadata.marriage_date = marriageDate;
-      if (marriagePlace) metadata.marriage_place = marriagePlace;
+      if (formState.marriageDate)
+        metadata.marriage_date = formState.marriageDate;
+      if (formState.marriagePlace)
+        metadata.marriage_place = formState.marriagePlace;
 
       const existingMeta = relationship.metadata as SpouseMetadata;
       if (existingMeta) {
@@ -170,8 +201,8 @@ export function EditRelationshipModal({
 
       input.metadata = metadata;
 
-      if (spouseOrder) {
-        input.spouse_order = parseInt(spouseOrder);
+      if (formState.spouseOrder) {
+        input.spouse_order = parseInt(formState.spouseOrder);
       }
     }
 
@@ -181,7 +212,7 @@ export function EditRelationshipModal({
         entity_id: relationshipId,
         action: 'UPDATE',
         payload: input as unknown as Record<string, unknown>,
-        requester_note: requesterNote || undefined,
+        requester_note: formState.requesterNote || undefined,
       });
     } else {
       updateMutation.mutate(input);
@@ -241,17 +272,10 @@ export function EditRelationshipModal({
         </DialogHeader>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3">
-            <div className="flex items-start gap-2">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
-              <div>
-                <p className="text-sm font-medium text-red-800">
-                  Gagal mengupdate hubungan
-                </p>
-                <p className="mt-1 text-sm text-red-600">{error}</p>
-              </div>
-            </div>
-          </div>
+          <RelationshipErrorDisplay
+            error={error}
+            title="Gagal mengupdate hubungan"
+          />
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -264,17 +288,21 @@ export function EditRelationshipModal({
                 <div className="mt-2 grid grid-cols-2 gap-3">
                   <Button
                     type="button"
-                    variant={parentRole === 'FATHER' ? 'default' : 'outline'}
-                    className={`h-11 ${parentRole === 'FATHER' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
-                    onClick={() => setParentRole('FATHER')}
+                    variant={
+                      formState.parentRole === 'FATHER' ? 'default' : 'outline'
+                    }
+                    className={`h-11 ${formState.parentRole === 'FATHER' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
+                    onClick={() => handleParentRoleChange('FATHER')}
                   >
                     Ayah
                   </Button>
                   <Button
                     type="button"
-                    variant={parentRole === 'MOTHER' ? 'default' : 'outline'}
-                    className={`h-11 ${parentRole === 'MOTHER' ? 'bg-rose-600 hover:bg-rose-700' : ''}`}
-                    onClick={() => setParentRole('MOTHER')}
+                    variant={
+                      formState.parentRole === 'MOTHER' ? 'default' : 'outline'
+                    }
+                    className={`h-11 ${formState.parentRole === 'MOTHER' ? 'bg-rose-600 hover:bg-rose-700' : ''}`}
+                    onClick={() => handleParentRoleChange('MOTHER')}
                   >
                     Ibu
                   </Button>
@@ -293,8 +321,8 @@ export function EditRelationshipModal({
                   type="number"
                   min="1"
                   max="99"
-                  value={childOrder}
-                  onChange={(e) => setChildOrder(e.target.value)}
+                  value={formState.childOrder}
+                  onChange={(e) => handleChildOrderChange(e.target.value)}
                   placeholder="Kosongkan untuk otomatis"
                   className="mt-1"
                 />
@@ -317,8 +345,8 @@ export function EditRelationshipModal({
                 <Input
                   id="marriageDate"
                   type="date"
-                  value={marriageDate}
-                  onChange={(e) => setMarriageDate(e.target.value)}
+                  value={formState.marriageDate}
+                  onChange={(e) => handleMarriageDateChange(e.target.value)}
                   className="mt-1"
                 />
               </div>
@@ -333,8 +361,8 @@ export function EditRelationshipModal({
                 <Input
                   id="marriagePlace"
                   type="text"
-                  value={marriagePlace}
-                  onChange={(e) => setMarriagePlace(e.target.value)}
+                  value={formState.marriagePlace}
+                  onChange={(e) => handleMarriagePlaceChange(e.target.value)}
                   placeholder="Contoh: Jakarta"
                   className="mt-1"
                 />
@@ -352,8 +380,8 @@ export function EditRelationshipModal({
                   type="number"
                   min="1"
                   max="99"
-                  value={spouseOrder}
-                  onChange={(e) => setSpouseOrder(e.target.value)}
+                  value={formState.spouseOrder}
+                  onChange={(e) => handleSpouseOrderChange(e.target.value)}
                   placeholder="Kosongkan untuk otomatis"
                   className="mt-1"
                 />
@@ -385,26 +413,10 @@ export function EditRelationshipModal({
           )}
 
           {isMember && (
-            <div className="border-t border-slate-200 pt-4">
-              <Label
-                htmlFor="requesterNote"
-                className="text-sm font-medium text-slate-700"
-              >
-                Keterangan (Opsional)
-              </Label>
-              <Textarea
-                id="requesterNote"
-                value={requesterNote}
-                onChange={(e) => setRequesterNote(e.target.value)}
-                placeholder="Tambahkan keterangan untuk pengajuan ini..."
-                rows={3}
-                maxLength={500}
-                className="mt-1 resize-none"
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                {requesterNote.length}/500 karakter
-              </p>
-            </div>
+            <RequesterNoteField
+              value={formState.requesterNote}
+              onChange={setRequesterNote}
+            />
           )}
 
           <div className="flex gap-3 pt-4">

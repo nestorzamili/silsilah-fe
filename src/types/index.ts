@@ -168,43 +168,43 @@ export interface PersonWithRelationships extends Person {
 
 export interface CreatePersonInput {
   first_name: string;
-  last_name?: string;
-  nickname?: string;
-  gender?: Gender;
-  birth_date?: string;
-  birth_place?: string;
-  death_date?: string;
-  death_place?: string;
-  bio?: string;
-  avatar_url?: string;
-  occupation?: string;
-  religion?: string;
-  nationality?: string;
-  education?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
+  last_name?: string | null;
+  nickname?: string | null;
+  gender?: Gender | null;
+  birth_date?: string | null;
+  birth_place?: string | null;
+  death_date?: string | null;
+  death_place?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+  occupation?: string | null;
+  religion?: string | null;
+  nationality?: string | null;
+  education?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
   is_alive?: boolean;
 }
 
 export interface UpdatePersonInput {
   first_name?: string;
-  last_name?: string;
-  nickname?: string;
-  gender?: Gender;
-  birth_date?: string;
-  birth_place?: string;
-  death_date?: string;
-  death_place?: string;
-  bio?: string;
-  avatar_url?: string;
-  occupation?: string;
-  religion?: string;
-  nationality?: string;
-  education?: string;
-  phone?: string;
-  email?: string;
-  address?: string;
+  last_name?: string | null;
+  nickname?: string | null;
+  gender?: Gender | null;
+  birth_date?: string | null;
+  birth_place?: string | null;
+  death_date?: string | null;
+  death_place?: string | null;
+  bio?: string | null;
+  avatar_url?: string | null;
+  occupation?: string | null;
+  religion?: string | null;
+  nationality?: string | null;
+  education?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
   is_alive?: boolean;
 }
 
@@ -292,9 +292,17 @@ export interface GraphStats {
   deceased_persons: number;
 }
 
+export interface FamilyGroup {
+  id: string;
+  parents: string[];
+  children: string[];
+  spouse_order: number;
+}
+
 export interface FamilyGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  groups?: FamilyGroup[];
   stats?: GraphStats;
 }
 

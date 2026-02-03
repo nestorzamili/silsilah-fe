@@ -3,7 +3,7 @@ import type { Media } from '@/types';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/Spinner';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   Dialog,
   DialogContent,
@@ -31,17 +31,12 @@ export function GalleryPanel({
   onUpload,
   onDelete,
 }: GalleryPanelProps) {
-  const { user: currentUser } = useAuthStore();
+  const { isMember, canModify } = usePermissions();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [mediaToDelete, setMediaToDelete] = useState<Media | null>(null);
   const [requesterNote, setRequesterNote] = useState('');
-
-  // Check if user has permission to edit (editor or developer)
-  const canEdit =
-    currentUser?.role === 'editor' || currentUser?.role === 'developer';
-  const canModify = currentUser?.role === 'member' || canEdit;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -173,11 +168,9 @@ export function GalleryPanel({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {currentUser?.role === 'member'
-                ? 'Ajukan Penghapusan Media'
-                : 'Hapus Media'}
+              {isMember ? 'Ajukan Penghapusan Media' : 'Hapus Media'}
             </DialogTitle>
-            {currentUser?.role === 'member' && (
+            {isMember && (
               <DialogDescription className="text-slate-600">
                 Pengajuan penghapusan Anda akan ditinjau oleh editor sebelum
                 media dihapus.
@@ -185,7 +178,7 @@ export function GalleryPanel({
             )}
           </DialogHeader>
 
-          {currentUser?.role === 'member' ? (
+          {isMember ? (
             <div className="space-y-4">
               <div className="rounded-lg bg-slate-50 p-3">
                 <p className="text-sm text-slate-700">

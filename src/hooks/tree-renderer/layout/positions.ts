@@ -8,6 +8,16 @@ import {
   SPOUSE_GAP,
 } from '../constants';
 
+function calculateGroupWidth(
+  group: string[],
+  nodeWidths: Map<string, number>,
+): number {
+  return group.reduce((width, personId, i) => {
+    const personWidth = nodeWidths.get(personId) || MIN_NODE_WIDTH;
+    return width + personWidth + (i < group.length - 1 ? SPOUSE_GAP : 0);
+  }, 0);
+}
+
 export function calculatePositions(
   nodes: GraphNode[],
   nodeMap: Map<string, GraphNode>,
@@ -21,18 +31,70 @@ export function calculatePositions(
   const nodePositions = new Map<string, NodePosition>();
 
   const generations = new Map<number, GraphNode[]>();
-  nodes.forEach((node) => {
+  for (const node of nodes) {
     const gen = nodeGenerations.get(node.id) ?? 0;
     if (!generations.has(gen)) generations.set(gen, []);
     generations.get(gen)!.push(node);
-  });
+  }
 
-  const sortedGens = Array.from(generations.keys()).sort((a, b) => a - b);
+  const childToFamilyUnit = new Map<string, FamilyUnit>();
+  const parentToChildren = new Map<string, string[]>();
+  for (const unit of familyUnits) {
+    for (const childId of unit.children) {
+      childToFamilyUnit.set(childId, unit);
+    }
+    for (const parentId of unit.parents) {
+      const existing = parentToChildren.get(parentId) || [];
+      parentToChildren.set(parentId, [...existing, ...unit.children]);
+    }
+  }
 
-  sortedGens.forEach((gen) => {
+  const sortedGensBottomUp = Array.from(generations.keys()).sort(
+    (a, b) => b - a,
+  );
+
+  const lowestGen = sortedGensBottomUp[0];
+
+  if (generations.has(lowestGen)) {
+    const nodesInGen = generations.get(lowestGen)!;
+    const coupleGroups = buildCoupleGroups(
+      nodesInGen,
+      nodeMap,
+      spouseMap,
+      spouseOrderMap,
+      nodeGenerations,
+      lowestGen,
+      marryingInNodes,
+    );
+    const sortedGroups = sortGroupsByChildOrder(
+      coupleGroups,
+      childToFamilyUnit,
+    );
+
+    let xOffset = 0;
+    const processed = new Set<string>();
+    sortedGroups.forEach((group) => {
+      let currentX = xOffset;
+      group.forEach((personId) => {
+        if (processed.has(personId)) return;
+        const personWidth = nodeWidths.get(personId) || MIN_NODE_WIDTH;
+        nodePositions.set(personId, {
+          x: currentX,
+          y: lowestGen * VERTICAL_GAP,
+        });
+        processed.add(personId);
+        currentX += personWidth + SPOUSE_GAP;
+      });
+      xOffset = currentX - SPOUSE_GAP + HORIZONTAL_GAP;
+    });
+  }
+
+  for (let i = 0; i < sortedGensBottomUp.length; i++) {
+    const gen = sortedGensBottomUp[i];
+    if (gen === lowestGen) continue;
+
     const nodesInGen = generations.get(gen)!;
     const processed = new Set<string>();
-    let xOffset = 0;
 
     const coupleGroups = buildCoupleGroups(
       nodesInGen,
@@ -44,158 +106,351 @@ export function calculatePositions(
       marryingInNodes,
     );
 
+    const groupsWithChildren: {
+      group: string[];
+      childrenBounds: { minX: number; maxX: number };
+    }[] = [];
+    const groupsWithoutChildren: {
+      group: string[];
+      childOrder: number;
+      parentUnitId: string;
+    }[] = [];
+
     coupleGroups.forEach((group) => {
-      group.forEach((personId) => {
-        if (processed.has(personId)) return;
-        const personWidth = nodeWidths.get(personId) || MIN_NODE_WIDTH;
-        nodePositions.set(personId, { x: xOffset, y: gen * VERTICAL_GAP });
-        processed.add(personId);
-        xOffset += personWidth + SPOUSE_GAP;
-      });
-      xOffset = xOffset - SPOUSE_GAP + HORIZONTAL_GAP;
-    });
-
-    const totalWidth = xOffset - HORIZONTAL_GAP;
-    const centerOffset = -totalWidth / 2;
-    nodesInGen.forEach((node) => {
-      const pos = nodePositions.get(node.id);
-      if (pos) {
-        nodePositions.set(node.id, { x: pos.x + centerOffset, y: pos.y });
+      const allChildrenIds: string[] = [];
+      for (const personId of group) {
+        const children = parentToChildren.get(personId);
+        if (children) allChildrenIds.push(...children);
       }
-    });
-  });
 
-  familyUnits.forEach((unit) => {
-    if (unit.children.length === 0) return;
+      const uniqueChildren = [...new Set(allChildrenIds)];
 
-    let familyCenterX: number;
-    if (unit.parents.length === 2) {
-      const pos1 = nodePositions.get(unit.parents[0]);
-      const pos2 = nodePositions.get(unit.parents[1]);
-      const width1 = nodeWidths.get(unit.parents[0]) || MIN_NODE_WIDTH;
-      const width2 = nodeWidths.get(unit.parents[1]) || MIN_NODE_WIDTH;
-
-      if (pos1 && pos2) {
-        const center1 = pos1.x + width1 / 2;
-        const center2 = pos2.x + width2 / 2;
-        familyCenterX = (center1 + center2) / 2;
-      } else {
-        return;
-      }
-    } else if (unit.parents.length === 1) {
-      const pos = nodePositions.get(unit.parents[0]);
-      const width = nodeWidths.get(unit.parents[0]) || MIN_NODE_WIDTH;
-      if (pos) {
-        familyCenterX = pos.x + width / 2;
-      } else {
-        return;
-      }
-    } else {
-      return;
-    }
-
-    if (unit.children.length === 1) {
-      const childId = unit.children[0];
-      const childPos = nodePositions.get(childId);
-      if (!childPos) return;
-
-      const childSpouses = spouseMap.get(childId) || [];
-      let groupWidth = nodeWidths.get(childId) || MIN_NODE_WIDTH;
-      childSpouses.forEach((spouseId) => {
-        if (nodePositions.has(spouseId)) {
-          groupWidth +=
-            SPOUSE_GAP + (nodeWidths.get(spouseId) || MIN_NODE_WIDTH);
-        }
-      });
-
-      let minX = childPos.x;
-      childSpouses.forEach((spouseId) => {
-        const spousePos = nodePositions.get(spouseId);
-        if (spousePos && spousePos.x < minX) {
-          minX = spousePos.x;
-        }
-      });
-
-      const newGroupStartX = familyCenterX - groupWidth / 2;
-      const deltaX = newGroupStartX - minX;
-
-      nodePositions.set(childId, { x: childPos.x + deltaX, y: childPos.y });
-
-      childSpouses.forEach((spouseId) => {
-        const spousePos = nodePositions.get(spouseId);
-        if (spousePos) {
-          nodePositions.set(spouseId, {
-            x: spousePos.x + deltaX,
-            y: spousePos.y,
-          });
-        }
-      });
-    } else {
-      let totalChildWidth = 0;
-      unit.children.forEach((childId, i) => {
-        totalChildWidth += nodeWidths.get(childId) || MIN_NODE_WIDTH;
-
-        const childSpouses = spouseMap.get(childId) || [];
-        childSpouses.forEach((spouseId) => {
-          if (nodePositions.has(spouseId)) {
-            totalChildWidth +=
-              SPOUSE_GAP + (nodeWidths.get(spouseId) || MIN_NODE_WIDTH);
+      if (uniqueChildren.length > 0) {
+        let childrenMinX = Infinity;
+        let childrenMaxX = -Infinity;
+        uniqueChildren.forEach((childId) => {
+          const pos = nodePositions.get(childId);
+          const width = nodeWidths.get(childId) || MIN_NODE_WIDTH;
+          if (pos) {
+            childrenMinX = Math.min(childrenMinX, pos.x);
+            childrenMaxX = Math.max(childrenMaxX, pos.x + width);
           }
         });
 
-        if (i < unit.children.length - 1) {
-          totalChildWidth += HORIZONTAL_GAP;
-        }
-      });
-
-      let childX = familyCenterX - totalChildWidth / 2;
-      unit.children.forEach((childId) => {
-        const childWidth = nodeWidths.get(childId) || MIN_NODE_WIDTH;
-        const pos = nodePositions.get(childId);
-        if (pos) {
-          const childSpouses = spouseMap.get(childId) || [];
-          let groupMinX = pos.x;
-          childSpouses.forEach((spouseId) => {
-            const spousePos = nodePositions.get(spouseId);
-            if (spousePos && spousePos.x < groupMinX) {
-              groupMinX = spousePos.x;
-            }
+        if (childrenMinX !== Infinity) {
+          groupsWithChildren.push({
+            group,
+            childrenBounds: { minX: childrenMinX, maxX: childrenMaxX },
           });
+        }
+      } else {
+        let childOrder = 999;
+        let parentUnitId = '';
+        for (const personId of group) {
+          const unit = childToFamilyUnit.get(personId);
+          if (unit) {
+            const idx = unit.children.indexOf(personId);
+            if (idx >= 0) {
+              childOrder = idx;
+              parentUnitId = unit.id;
+              break;
+            }
+          }
+        }
+        groupsWithoutChildren.push({ group, childOrder, parentUnitId });
+      }
+    });
 
-          const deltaX = childX - groupMinX;
+    groupsWithChildren.forEach(({ group, childrenBounds }) => {
+      const allChildrenCenterX =
+        (childrenBounds.minX + childrenBounds.maxX) / 2;
 
-          nodePositions.set(childId, { x: pos.x + deltaX, y: pos.y });
+      const rootId = group[0];
+      const rootWidth = nodeWidths.get(rootId) || MIN_NODE_WIDTH;
 
-          childSpouses.forEach((spouseId) => {
-            const spousePos = nodePositions.get(spouseId);
-            if (spousePos) {
-              nodePositions.set(spouseId, {
-                x: spousePos.x + deltaX,
-                y: spousePos.y,
+      const getUnitAndCenter = (p1: string, p2?: string) => {
+        const unit = familyUnits.find(
+          (u) =>
+            u.parents.includes(p1) &&
+            (!p2 || u.parents.includes(p2)) &&
+            u.parents.length === (p2 ? 2 : 1),
+        );
+
+        if (!unit || unit.children.length === 0) return null;
+
+        let minC = Infinity;
+        let maxC = -Infinity;
+        unit.children.forEach((cId) => {
+          const pos = nodePositions.get(cId);
+          const w = nodeWidths.get(cId) || MIN_NODE_WIDTH;
+          if (pos) {
+            minC = Math.min(minC, pos.x);
+            maxC = Math.max(maxC, pos.x + w);
+          }
+        });
+
+        if (minC === Infinity) return null;
+        return (minC + maxC) / 2;
+      };
+
+      const spouse1Id = group.length > 1 ? group[1] : undefined;
+      const spouse1Width = spouse1Id
+        ? nodeWidths.get(spouse1Id) || MIN_NODE_WIDTH
+        : 0;
+
+      const center1 = getUnitAndCenter(rootId, spouse1Id);
+
+      const targetCenter = center1 ?? allChildrenCenterX;
+
+      const pairWidth = rootWidth + (spouse1Id ? SPOUSE_GAP + spouse1Width : 0);
+      const rootX = targetCenter - pairWidth / 2;
+
+      if (!processed.has(rootId)) {
+        nodePositions.set(rootId, { x: rootX, y: gen * VERTICAL_GAP });
+        processed.add(rootId);
+      }
+
+      let currentRightX = rootX + rootWidth;
+
+      if (spouse1Id && !processed.has(spouse1Id)) {
+        const s1X = currentRightX + SPOUSE_GAP;
+        nodePositions.set(spouse1Id, { x: s1X, y: gen * VERTICAL_GAP });
+        processed.add(spouse1Id);
+        currentRightX = s1X + spouse1Width;
+      }
+
+      for (let i = 2; i < group.length; i++) {
+        const sId = group[i];
+        if (processed.has(sId)) continue;
+
+        const sWidth = nodeWidths.get(sId) || MIN_NODE_WIDTH;
+
+        const sCenter = getUnitAndCenter(rootId, sId);
+
+        let sX: number;
+        if (sCenter !== null) {
+          const desiredX = sCenter - sWidth / 2;
+          sX = Math.max(desiredX, currentRightX + SPOUSE_GAP);
+        } else {
+          sX = currentRightX + SPOUSE_GAP;
+        }
+
+        nodePositions.set(sId, { x: sX, y: gen * VERTICAL_GAP });
+        processed.add(sId);
+        currentRightX = sX + sWidth;
+      }
+    });
+
+    groupsWithoutChildren.sort((a, b) => a.childOrder - b.childOrder);
+
+    groupsWithoutChildren.forEach(({ group, childOrder, parentUnitId }) => {
+      const siblingPositions: {
+        minX: number;
+        maxX: number;
+        childOrder: number;
+      }[] = [];
+
+      groupsWithChildren.forEach(({ group: sibGroup }) => {
+        sibGroup.forEach((personId) => {
+          const unit = childToFamilyUnit.get(personId);
+          if (unit && unit.id === parentUnitId) {
+            const pos = nodePositions.get(personId);
+            const width = nodeWidths.get(personId) || MIN_NODE_WIDTH;
+            if (pos) {
+              const idx = unit.children.indexOf(personId);
+              siblingPositions.push({
+                minX: pos.x,
+                maxX: pos.x + width,
+                childOrder: idx,
               });
             }
-          });
-
-          let groupWidth = childWidth;
-          childSpouses.forEach((spouseId) => {
-            if (nodePositions.has(spouseId)) {
-              groupWidth +=
-                SPOUSE_GAP + (nodeWidths.get(spouseId) || MIN_NODE_WIDTH);
-            }
-          });
-
-          childX += groupWidth + HORIZONTAL_GAP;
-        }
+          }
+        });
       });
-    }
+
+      groupsWithoutChildren.forEach(({ group: sibGroup }) => {
+        sibGroup.forEach((personId) => {
+          if (!processed.has(personId)) return;
+          const unit = childToFamilyUnit.get(personId);
+          if (unit && unit.id === parentUnitId) {
+            const pos = nodePositions.get(personId);
+            const width = nodeWidths.get(personId) || MIN_NODE_WIDTH;
+            if (pos) {
+              const idx = unit.children.indexOf(personId);
+              siblingPositions.push({
+                minX: pos.x,
+                maxX: pos.x + width,
+                childOrder: idx,
+              });
+            }
+          }
+        });
+      });
+
+      const groupWidth = calculateGroupWidth(group, nodeWidths);
+
+      let targetX: number;
+
+      if (siblingPositions.length === 0) {
+        targetX = 0;
+      } else {
+        const sortedSiblings = siblingPositions.sort(
+          (a, b) => a.childOrder - b.childOrder,
+        );
+
+        const siblingsBefore = sortedSiblings.filter(
+          (s) => s.childOrder < childOrder,
+        );
+        const siblingsAfter = sortedSiblings.filter(
+          (s) => s.childOrder > childOrder,
+        );
+
+        if (siblingsBefore.length === 0) {
+          const firstSibling = sortedSiblings[0];
+          targetX = firstSibling.minX - HORIZONTAL_GAP - groupWidth;
+        } else if (siblingsAfter.length === 0) {
+          const lastSibling = siblingsBefore[siblingsBefore.length - 1];
+          targetX = lastSibling.maxX + HORIZONTAL_GAP;
+        } else {
+          const leftSibling = siblingsBefore[siblingsBefore.length - 1];
+          const rightSibling = siblingsAfter[0];
+          const gapCenter = (leftSibling.maxX + rightSibling.minX) / 2;
+          targetX = gapCenter - groupWidth / 2;
+        }
+      }
+
+      let currentX = targetX;
+      group.forEach((personId) => {
+        if (processed.has(personId)) return;
+        const personWidth = nodeWidths.get(personId) || MIN_NODE_WIDTH;
+        nodePositions.set(personId, { x: currentX, y: gen * VERTICAL_GAP });
+        processed.add(personId);
+        currentX += personWidth + SPOUSE_GAP;
+      });
+    });
+
+    resolveGenerationOverlaps(
+      nodesInGen,
+      nodePositions,
+      nodeWidths,
+      spouseMap,
+      nodeGenerations,
+      gen,
+    );
+  }
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  nodePositions.forEach((pos, nodeId) => {
+    const width = nodeWidths.get(nodeId) || MIN_NODE_WIDTH;
+    minX = Math.min(minX, pos.x);
+    maxX = Math.max(maxX, pos.x + width);
   });
 
-  sortedGens.forEach((gen) => {
-    const nodesInGen = generations.get(gen)!;
-    resolveOverlaps(nodesInGen, nodePositions, nodeWidths);
-  });
+  if (minX !== Infinity && maxX !== -Infinity) {
+    const treeWidth = maxX - minX;
+    const centerOffset = -minX - treeWidth / 2;
+    nodePositions.forEach((pos, nodeId) => {
+      nodePositions.set(nodeId, { x: pos.x + centerOffset, y: pos.y });
+    });
+  }
 
   return nodePositions;
+}
+
+function resolveGenerationOverlaps(
+  nodesInGen: GraphNode[],
+  nodePositions: Map<string, NodePosition>,
+  nodeWidths: Map<string, number>,
+  spouseMap: Map<string, string[]>,
+  nodeGenerations: Map<string, number>,
+  gen: number,
+) {
+  const processed = new Set<string>();
+  const coupleGroups: string[][] = [];
+
+  nodesInGen.forEach((node) => {
+    if (processed.has(node.id)) return;
+
+    const spouses = (spouseMap.get(node.id) || []).filter(
+      (sId) => nodeGenerations.get(sId) === gen,
+    );
+
+    const group = [node.id, ...spouses.filter((s) => !processed.has(s))];
+    group.forEach((id) => processed.add(id));
+    coupleGroups.push(group);
+  });
+
+  const groupBounds = coupleGroups.map((group) => {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    group.forEach((personId) => {
+      const pos = nodePositions.get(personId);
+      const width = nodeWidths.get(personId) || MIN_NODE_WIDTH;
+      if (pos) {
+        minX = Math.min(minX, pos.x);
+        maxX = Math.max(maxX, pos.x + width);
+      }
+    });
+    return { group, minX, maxX };
+  });
+
+  groupBounds.sort((a, b) => a.minX - b.minX);
+
+  for (let i = 1; i < groupBounds.length; i++) {
+    const prev = groupBounds[i - 1];
+    const curr = groupBounds[i];
+
+    const minGap = HORIZONTAL_GAP / 2;
+    if (curr.minX < prev.maxX + minGap) {
+      const shift = prev.maxX + minGap - curr.minX;
+
+      for (let j = i; j < groupBounds.length; j++) {
+        const g = groupBounds[j];
+        g.group.forEach((personId) => {
+          const pos = nodePositions.get(personId);
+          if (pos) {
+            nodePositions.set(personId, { x: pos.x + shift, y: pos.y });
+          }
+        });
+        g.minX += shift;
+        g.maxX += shift;
+      }
+    }
+  }
+}
+
+function sortGroupsByChildOrder(
+  coupleGroups: string[][],
+  childToFamilyUnit: Map<string, FamilyUnit>,
+): string[][] {
+  const groupsWithOrder = coupleGroups.map((group) => {
+    let childOrder = 999;
+    let parentFamilyUnitId = '';
+
+    for (const personId of group) {
+      const unit = childToFamilyUnit.get(personId);
+      if (unit) {
+        const idx = unit.children.indexOf(personId);
+        if (idx >= 0) {
+          childOrder = idx;
+          parentFamilyUnitId = unit.id;
+          break;
+        }
+      }
+    }
+
+    return { group, childOrder, parentFamilyUnitId };
+  });
+
+  groupsWithOrder.sort((a, b) => {
+    if (a.parentFamilyUnitId && a.parentFamilyUnitId === b.parentFamilyUnitId) {
+      return a.childOrder - b.childOrder;
+    }
+    return 0;
+  });
+
+  return groupsWithOrder.map((g) => g.group);
 }
 
 export function buildCoupleGroups(
@@ -262,37 +517,4 @@ export function buildCoupleGroups(
   });
 
   return groups;
-}
-
-export function resolveOverlaps(
-  nodesInGen: GraphNode[],
-  nodePositions: Map<string, NodePosition>,
-  nodeWidths: Map<string, number>,
-) {
-  const sorted = nodesInGen
-    .map((node) => ({
-      node,
-      pos: nodePositions.get(node.id),
-      width: nodeWidths.get(node.id) || MIN_NODE_WIDTH,
-    }))
-    .filter((item) => item.pos !== undefined)
-    .sort((a, b) => a.pos!.x - b.pos!.x);
-
-  for (let i = 1; i < sorted.length; i++) {
-    const prev = sorted[i - 1];
-    const curr = sorted[i];
-
-    const prevRight = prev.pos!.x + prev.width;
-    const currLeft = curr.pos!.x;
-    const minGap = HORIZONTAL_GAP / 2;
-
-    if (currLeft < prevRight + minGap) {
-      const shift = prevRight + minGap - currLeft;
-      nodePositions.set(curr.node.id, {
-        x: curr.pos!.x + shift,
-        y: curr.pos!.y,
-      });
-      curr.pos = nodePositions.get(curr.node.id);
-    }
-  }
 }

@@ -6,7 +6,7 @@ import { relationshipService, changeRequestService } from '@/services';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { EditRelationshipModal } from './EditRelationshipModal';
 import { Spinner } from '@/components/ui/Spinner';
@@ -31,19 +31,13 @@ export function RelationshipPersonCard({
   relationshipId,
   personId,
 }: RelationshipPersonCardProps) {
-  const { user: currentUser } = useAuthStore();
+  const { isMember, canModify } = usePermissions();
   const queryClient = useQueryClient();
   const fullName = getFullName(person);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [currentRelationshipId, setCurrentRelationshipId] = useState('');
   const [requesterNote, setRequesterNote] = useState('');
-
-  const isMember = currentUser?.role === 'member';
-  const canModify =
-    currentUser?.role === 'member' ||
-    currentUser?.role === 'editor' ||
-    currentUser?.role === 'developer';
 
   const deleteMutation = useMutation({
     mutationFn: () => relationshipService.delete(relationshipId!),

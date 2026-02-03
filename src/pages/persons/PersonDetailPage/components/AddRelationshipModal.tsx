@@ -8,11 +8,9 @@ import {
 } from '@/services';
 import type {
   Person,
-  RelationshipType,
   CreateRelationshipInput,
+  PersonWithRelationships,
 } from '@/types';
-import type { SelectedRelationship } from '@/types';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -21,64 +19,76 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/Spinner';
-import { getFullName } from '@/utils/person';
-import { useAuthStore } from '@/stores';
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { RelationshipTypeSelector } from './RelationshipTypeSelector';
-import { ParentRoleForm } from './ParentRoleForm';
-import { SpouseMetadataForm } from './SpouseMetadataForm';
+import { usePermissions } from '@/hooks/usePermissions';
 import { PersonSearchBox } from './PersonSearchBox';
+import { RelationshipErrorDisplay } from './RelationshipErrorDisplay';
+import { RequesterNoteField } from './RequesterNoteField';
+import { useRelationshipForm } from '../hooks/useRelationshipForm';
+import { parseRelationshipError } from '../utils/relationshipErrorHandler';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+
+import { getFullName } from '@/utils/person';
 
 interface AddRelationshipModalProps {
   open: boolean;
   onClose: () => void;
   personId: string;
   personName: string;
+  existingData?: PersonWithRelationships;
 }
+
+type RelationshipRole = 'FATHER' | 'MOTHER' | 'SPOUSE' | 'CHILD';
 
 export function AddRelationshipModal({
   open,
   onClose,
   personId,
   personName,
+  existingData,
 }: AddRelationshipModalProps) {
   const queryClient = useQueryClient();
-  const { user: currentUser } = useAuthStore();
-  const [selectedRelationships, setSelectedRelationships] = useState<
-    SelectedRelationship[]
-  >([]);
-  const [currentType, setCurrentType] = useState<RelationshipType>('PARENT');
-  const [currentParentRole, setCurrentParentRole] = useState<
-    'FATHER' | 'MOTHER' | undefined
-  >(undefined);
-  const [marriageDate, setMarriageDate] = useState('');
-  const [marriagePlace, setMarriagePlace] = useState('');
-  const [spouseOrder, setSpouseOrder] = useState('');
-  const [childOrder, setChildOrder] = useState('');
-  const [requesterNote, setRequesterNote] = useState('');
+  const { isMember } = usePermissions();
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedRole, setSelectedRole] = useState<RelationshipRole | ''>('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInputValue, setSearchInputValue] = useState('');
   const [filteredSearchResults, setFilteredSearchResults] = useState<Person[]>(
     [],
   );
 
-  const isMember = currentUser?.role === 'member';
+  // Form state
+  const {
+    formState,
+    setMarriageDate,
+    setMarriagePlace,
+    setSpouseOrder,
+    setChildOrder,
+    setRequesterNote,
+    resetForm: resetFormState,
+  } = useRelationshipForm();
 
   const resetForm = () => {
-    setSelectedRelationships([]);
-    setCurrentType('PARENT');
-    setCurrentParentRole(undefined);
-    setMarriageDate('');
-    setMarriagePlace('');
-    setSpouseOrder('');
-    setChildOrder('');
+    setSelectedPerson(null);
+    setSelectedRole('');
+    resetFormState();
     setSearchQuery('');
+    setSearchInputValue('');
     setFilteredSearchResults([]);
-    setRequesterNote('');
     setError(null);
   };
 
-  const [searchQuery, setSearchQuery] = useState('');
   const { data: searchResults, isLoading: isSearching } = useQuery({
     queryKey: ['people', 'search', searchQuery],
     queryFn: () => personService.search(searchQuery, 10),
@@ -86,9 +96,35 @@ export function AddRelationshipModal({
     staleTime: 30000,
   });
 
+  const availableRoles = useMemo(() => {
+    const roles: { value: RelationshipRole; label: string }[] = [];
+
+    if (!existingData) {
+      return [
+        { value: 'FATHER', label: 'Ayah' },
+        { value: 'MOTHER', label: 'Ibu' },
+        { value: 'SPOUSE', label: 'Pasangan (Suami/Istri)' },
+      ];
+    }
+
+    const hasFather = existingData.parents.some((p) => p.role === 'FATHER');
+    const hasMother = existingData.parents.some((p) => p.role === 'MOTHER');
+
+    if (!hasFather) {
+      roles.push({ value: 'FATHER', label: 'Ayah' });
+    }
+    if (!hasMother) {
+      roles.push({ value: 'MOTHER', label: 'Ibu' });
+    }
+
+    roles.push({ value: 'SPOUSE', label: 'Pasangan (Suami/Istri)' });
+
+    return roles;
+  }, [existingData]);
+
   const excludeIds = useMemo(
-    () => [personId, ...selectedRelationships.map((rel) => rel.person.id)],
-    [personId, selectedRelationships],
+    () => [personId, ...(selectedPerson ? [selectedPerson.id] : [])],
+    [personId, selectedPerson],
   );
 
   const handleSearch = async (query: string) => {
@@ -99,42 +135,16 @@ export function AddRelationshipModal({
     setSearchQuery(query);
   };
 
-  const handleAddRelationship = async (person: Person) => {
-    if (selectedRelationships.some((rel) => rel.person.id === person.id)) {
-      return;
+  useEffect(() => {
+    if (searchResults) {
+      const filtered = searchResults.filter(
+        (person: Person) => !excludeIds.includes(person.id),
+      );
+      setFilteredSearchResults(filtered);
+    } else {
+      setFilteredSearchResults([]);
     }
-
-    const selectedRel: SelectedRelationship = {
-      person,
-      type: currentType,
-      parentRole:
-        currentType === 'PARENT' ? currentParentRole || undefined : undefined,
-      marriageDate:
-        currentType === 'SPOUSE' ? marriageDate || undefined : undefined,
-      marriagePlace:
-        currentType === 'SPOUSE' ? marriagePlace || undefined : undefined,
-      spouseOrder:
-        currentType === 'SPOUSE'
-          ? spouseOrder
-            ? parseInt(spouseOrder)
-            : undefined
-          : undefined,
-      childOrder:
-        currentType === 'PARENT'
-          ? childOrder
-            ? parseInt(childOrder)
-            : undefined
-          : undefined,
-    };
-
-    setSelectedRelationships((prev) => [...prev, selectedRel]);
-  };
-
-  const handleRemoveRelationship = (id: string) => {
-    setSelectedRelationships((prev) =>
-      prev.filter((rel) => rel.person.id !== id),
-    );
-  };
+  }, [searchResults, excludeIds]);
 
   const createMutation = useMutation({
     mutationFn: (input: CreateRelationshipInput) =>
@@ -143,40 +153,12 @@ export function AddRelationshipModal({
       queryClient.invalidateQueries({ queryKey: ['person', personId] });
       queryClient.invalidateQueries({ queryKey: ['graph'] });
       queryClient.invalidateQueries({ queryKey: ['recentActivities'] });
+      toast.success('Hubungan berhasil ditambahkan');
       resetForm();
       onClose();
     },
     onError: (err) => {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Gagal menambahkan hubungan';
-
-      if (
-        errorMessage.toLowerCase().includes('relationship already exists') ||
-        errorMessage.toLowerCase().includes('hubungan sudah ada')
-      ) {
-        setError('Hubungan ini sudah ada. Silakan pilih orang lain.');
-      } else if (
-        errorMessage
-          .toLowerCase()
-          .includes('cannot create relationship with self') ||
-        errorMessage
-          .toLowerCase()
-          .includes('tidak dapat membuat hubungan dengan diri sendiri')
-      ) {
-        setError('Tidak dapat membuat hubungan dengan diri sendiri.');
-      } else if (
-        errorMessage.toLowerCase().includes('one or both persons not found') ||
-        errorMessage.toLowerCase().includes('orang tidak ditemukan')
-      ) {
-        setError('Salah satu atau kedua orang tidak ditemukan.');
-      } else if (
-        errorMessage.toLowerCase().includes('duplicate parent role') ||
-        errorMessage.toLowerCase().includes('sudah memiliki orang tua')
-      ) {
-        setError('Orang ini sudah memiliki orang tua dengan peran yang sama.');
-      } else {
-        setError(errorMessage);
-      }
+      setError(parseRelationshipError(err));
     },
   });
 
@@ -197,349 +179,307 @@ export function AddRelationshipModal({
     },
   });
 
-  const validateForm = () => {
-    if (selectedRelationships.length === 0) {
-      setError('Harap pilih setidaknya satu orang untuk ditambahkan hubungan');
-      return false;
-    }
-
-    if (
-      currentType === 'PARENT' &&
-      childOrder &&
-      (parseInt(childOrder) < 1 || parseInt(childOrder) > 99)
-    ) {
-      setError('Urutan anak harus antara 1 dan 99');
-      return false;
-    }
-
-    if (
-      currentType === 'SPOUSE' &&
-      spouseOrder &&
-      (parseInt(spouseOrder) < 1 || parseInt(spouseOrder) > 99)
-    ) {
-      setError('Urutan pernikahan harus antara 1 dan 99');
-      return false;
-    }
-
-    if (currentType === 'PARENT' && !currentParentRole) {
-      setError('Harap pilih peran orang tua (Ayah atau Ibu)');
-      return false;
-    }
-
-    setError(null);
-    return true;
-  };
-
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!selectedPerson || !selectedRole) {
+      setError('Mohon lengkapi data yang diperlukan');
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
 
     try {
-      if (isMember) {
-        const promises = selectedRelationships.map((rel) => {
-          const payload: Record<string, unknown> = {
-            person_a: personId,
-            person_b: rel.person.id,
-            type: currentType,
-          };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let payload: any = {};
+      let input: CreateRelationshipInput;
 
-          if (
-            currentType === 'PARENT' &&
-            (rel.parentRole || rel.childOrder !== undefined)
-          ) {
-            if (rel.parentRole) {
-              payload.metadata = { role: rel.parentRole };
-            }
-            if (rel.childOrder !== undefined)
-              payload.child_order = rel.childOrder;
-          }
+      if (selectedRole === 'FATHER' || selectedRole === 'MOTHER') {
+        input = {
+          person_a: selectedPerson.id, // Parent
+          person_b: personId, // Child
+          type: 'PARENT',
+          metadata: { role: selectedRole },
+        };
 
-          if (
-            currentType === 'SPOUSE' &&
-            (rel.marriageDate ||
-              rel.marriagePlace ||
-              rel.spouseOrder !== undefined)
-          ) {
-            payload.metadata = {
-              marriage_date: rel.marriageDate,
-              marriage_place: rel.marriagePlace,
-              is_consanguineous: false,
-            };
-            if (rel.spouseOrder !== undefined)
-              payload.spouse_order = rel.spouseOrder;
-          }
+        if (formState.childOrder) {
+          input.child_order = parseInt(formState.childOrder);
+        }
+      } else if (selectedRole === 'CHILD') {
+        const parentRole =
+          existingData?.gender === 'MALE' ? 'FATHER' : 'MOTHER';
 
-          return createRequestMutation.mutateAsync({
-            entity_type: 'RELATIONSHIP',
-            action: 'CREATE',
-            payload: payload,
-            requester_note: requesterNote || undefined,
-          });
-        });
+        input = {
+          person_a: personId,
+          person_b: selectedPerson.id,
+          type: 'PARENT',
+          metadata: { role: parentRole },
+        };
 
-        await Promise.all(promises);
+        if (formState.childOrder) {
+          input.child_order = parseInt(formState.childOrder);
+        }
       } else {
-        const promises = selectedRelationships.map((rel) => {
-          const input: CreateRelationshipInput = {
-            person_a: personId,
-            person_b: rel.person.id,
-            type: currentType,
-          };
+        input = {
+          person_a: personId,
+          person_b: selectedPerson.id,
+          type: 'SPOUSE',
+          metadata: {
+            marriage_date: formState.marriageDate || undefined,
+            marriage_place: formState.marriagePlace || undefined,
+            is_consanguineous: false,
+          },
+          spouse_order: formState.spouseOrder
+            ? parseInt(formState.spouseOrder)
+            : undefined,
+        };
+      }
 
-          if (
-            currentType === 'PARENT' &&
-            (rel.parentRole || rel.childOrder !== undefined)
-          ) {
-            if (rel.parentRole) {
-              input.metadata = { role: rel.parentRole };
-            }
-            if (rel.childOrder !== undefined)
-              input.child_order = rel.childOrder;
-          }
+      if (isMember) {
+        payload = { ...input };
 
-          if (
-            currentType === 'SPOUSE' &&
-            (rel.marriageDate ||
-              rel.marriagePlace ||
-              rel.spouseOrder !== undefined)
-          ) {
-            input.metadata = {
-              marriage_date: rel.marriageDate,
-              marriage_place: rel.marriagePlace,
-              is_consanguineous: false,
-            };
-            if (rel.spouseOrder !== undefined)
-              input.spouse_order = rel.spouseOrder;
-          }
-
-          return createMutation.mutateAsync(input);
+        await createRequestMutation.mutateAsync({
+          entity_type: 'RELATIONSHIP',
+          action: 'CREATE',
+          payload: payload,
+          requester_note: formState.requesterNote || undefined,
         });
-
-        await Promise.all(promises);
+      } else {
+        await createMutation.mutateAsync(input);
       }
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Gagal menambahkan hubungan';
-
-      if (
-        errorMessage.toLowerCase().includes('relationship already exists') ||
-        errorMessage.toLowerCase().includes('hubungan sudah ada')
-      ) {
-        setError('Hubungan ini sudah ada. Silakan pilih orang lain.');
-      } else if (
-        errorMessage
-          .toLowerCase()
-          .includes('cannot create relationship with self') ||
-        errorMessage
-          .toLowerCase()
-          .includes('tidak dapat membuat hubungan dengan diri sendiri')
-      ) {
-        setError('Tidak dapat membuat hubungan dengan diri sendiri.');
-      } else if (
-        errorMessage.toLowerCase().includes('one or both persons not found') ||
-        errorMessage.toLowerCase().includes('orang tidak ditemukan')
-      ) {
-        setError('Salah satu atau kedua orang tidak ditemukan.');
-      } else if (
-        errorMessage.toLowerCase().includes('duplicate parent role') ||
-        errorMessage.toLowerCase().includes('sudah memiliki orang tua')
-      ) {
-        setError('Orang ini sudah memiliki orang tua dengan peran yang sama.');
-      } else {
-        setError(errorMessage);
-      }
+      setError(parseRelationshipError(err));
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    if (searchResults) {
-      const filtered = searchResults.filter(
-        (person: Person) => !excludeIds.includes(person.id),
-      );
-      setFilteredSearchResults(filtered);
-    } else {
-      setFilteredSearchResults([]);
-    }
-  }, [searchResults, excludeIds]);
 
   const handleClose = () => {
     resetForm();
     onClose();
   };
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'FATHER':
+        return 'Ayah';
+      case 'MOTHER':
+        return 'Ibu';
+      case 'SPOUSE':
+        return 'Pasangan';
+      case 'CHILD':
+        return 'Anak';
+      default:
+        return role;
+    }
+  };
+
   return (
     <Dialog
       open={open}
       onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          handleClose();
-        }
+        if (!isOpen) handleClose();
       }}
     >
-      <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Tambah Hubungan</DialogTitle>
+          <DialogTitle>Tambah Hubungan Keluarga</DialogTitle>
+          <VisuallyHidden>
+            <DialogTitle>Formulir Tambah Hubungan Keluarga</DialogTitle>
+          </VisuallyHidden>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-              <div className="flex items-start gap-2">
-                <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
-                <div>
-                  <p className="text-sm font-medium text-red-800">
-                    Gagal menambahkan hubungan
-                  </p>
-                  <p className="mt-1 text-sm text-red-600">{error}</p>
+        <div className="space-y-6 py-2">
+          {error && <RelationshipErrorDisplay error={error} />}
+
+          <div className="space-y-2">
+            <Label>Hubungan</Label>
+            <Select
+              value={selectedRole}
+              onValueChange={(val) => {
+                setSelectedRole(val as RelationshipRole);
+                setMarriageDate('');
+                setMarriagePlace('');
+                setSpouseOrder('');
+                setChildOrder('');
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pilih jenis hubungan" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableRoles.map((role) => (
+                  <SelectItem key={role.value} value={role.value}>
+                    {role.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-slate-500">
+              Orang yang akan ditambahkan adalah{' '}
+              <strong>
+                {selectedRole ? getRoleLabel(selectedRole) : '...'}
+              </strong>{' '}
+              dari {personName}
+            </p>
+          </div>
+
+          {selectedRole && (
+            <div className="space-y-2">
+              <PersonSearchBox
+                currentType={selectedRole === 'SPOUSE' ? 'SPOUSE' : 'PARENT'}
+                searchResults={filteredSearchResults}
+                isSearching={isSearching}
+                searchQuery={searchQuery}
+                onSearch={handleSearch}
+                onAddPerson={(p) => {
+                  setSelectedPerson(p);
+                  setSearchQuery('');
+                  setSearchInputValue('');
+                  setFilteredSearchResults([]);
+                }}
+                selectedPersonIds={selectedPerson ? [selectedPerson.id] : []}
+                inputValue={searchInputValue}
+                onInputChange={setSearchInputValue}
+              />
+
+              {selectedPerson && (
+                <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-sm overflow-hidden">
+                      {selectedPerson.avatar_url ? (
+                        <img
+                          src={selectedPerson.avatar_url}
+                          alt={getFullName(selectedPerson)}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        getFullName(selectedPerson).charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {getFullName(selectedPerson)}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Akan ditambahkan sebagai {getRoleLabel(selectedRole)}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedPerson(null)}
+                    className="text-slate-400 hover:text-red-500"
+                  >
+                    Ganti
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {selectedPerson && selectedRole === 'SPOUSE' && (
+            <div className="space-y-4 pt-2 border-t border-slate-100">
+              <h4 className="text-sm font-medium text-slate-900">
+                Detail Pernikahan
+              </h4>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="marriageDate">
+                    Tanggal Menikah (Opsional)
+                  </Label>
+                  <Input
+                    id="marriageDate"
+                    type="date"
+                    value={formState.marriageDate}
+                    onChange={(e) => setMarriageDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="marriagePlace">
+                    Tempat Menikah (Opsional)
+                  </Label>
+                  <Input
+                    id="marriagePlace"
+                    placeholder="Contoh: Jakarta"
+                    value={formState.marriagePlace}
+                    onChange={(e) => setMarriagePlace(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="spouseOrder">
+                    Urutan Pasangan (Opsional)
+                  </Label>
+                  <Input
+                    id="spouseOrder"
+                    type="number"
+                    min="1"
+                    placeholder="Ke-1, Ke-2, dst"
+                    value={formState.spouseOrder}
+                    onChange={(e) => setSpouseOrder(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
           )}
 
-          <div className="flex gap-6">
-            <div className="flex-1 space-y-6">
-              <RelationshipTypeSelector
-                currentType={currentType}
-                personName={personName}
-                onTypeChange={(type) => {
-                  setCurrentType(type);
-                  if (type === 'PARENT') {
-                    setCurrentParentRole(undefined);
-                  } else {
-                    setMarriageDate('');
-                    setMarriagePlace('');
-                    setSpouseOrder('');
-                  }
-                }}
-              />
-
-              {currentType === 'PARENT' && (
-                <ParentRoleForm
-                  currentParentRole={currentParentRole}
-                  childOrder={childOrder}
-                  onParentRoleChange={setCurrentParentRole}
-                  onChildOrderChange={setChildOrder}
-                />
-              )}
-
-              {currentType === 'SPOUSE' && (
-                <SpouseMetadataForm
-                  marriageDate={marriageDate}
-                  marriagePlace={marriagePlace}
-                  spouseOrder={spouseOrder}
-                  onMarriageDateChange={setMarriageDate}
-                  onMarriagePlaceChange={setMarriagePlace}
-                  onSpouseOrderChange={setSpouseOrder}
-                />
-              )}
-
-              <PersonSearchBox
-                currentType={currentType}
-                searchResults={filteredSearchResults}
-                isSearching={isSearching}
-                searchQuery={searchQuery}
-                onSearch={handleSearch}
-                onAddPerson={handleAddRelationship}
-                selectedPersonIds={selectedRelationships.map(
-                  (rel) => rel.person.id,
-                )}
-              />
-
-              {isMember && (
-                <div className="border-t border-slate-200 pt-4">
-                  <label
-                    htmlFor="requesterNote"
-                    className="block text-sm font-medium text-slate-700 mb-2"
-                  >
-                    Keterangan (Opsional)
-                  </label>
-                  <Textarea
-                    id="requesterNote"
-                    value={requesterNote}
-                    onChange={(e) => setRequesterNote(e.target.value)}
-                    placeholder="Tambahkan keterangan untuk pengajuan ini..."
-                    rows={3}
-                    maxLength={500}
-                    className="resize-none"
+          {selectedPerson &&
+            (selectedRole === 'FATHER' ||
+              selectedRole === 'MOTHER' ||
+              selectedRole === 'CHILD') && (
+              <div className="space-y-4 pt-2 border-t border-slate-100">
+                <div className="space-y-2">
+                  <Label htmlFor="childOrder">
+                    Urutan Kelahiran (Opsional)
+                  </Label>
+                  <Input
+                    id="childOrder"
+                    type="number"
+                    min="1"
+                    placeholder="Anak ke-1, ke-2, dst"
+                    value={formState.childOrder}
+                    onChange={(e) => setChildOrder(e.target.value)}
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    {requesterNote.length}/500 karakter
+                  <p className="text-[10px] text-slate-500">
+                    Nomor urut kelahiran{' '}
+                    {selectedRole === 'CHILD'
+                      ? selectedPerson.first_name
+                      : personName}
                   </p>
                 </div>
-              )}
-            </div>
-
-            <div className="w-80">
-              <div className="sticky top-0">
-                <h3 className="text-sm font-medium text-slate-700 mb-3">
-                  Terpilih ({selectedRelationships.length})
-                </h3>
-                <div className="space-y-2 max-h-125 overflow-y-auto pr-2">
-                  {selectedRelationships.length > 0 ? (
-                    selectedRelationships.map((rel) => (
-                      <div
-                        key={rel.person.id}
-                        className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-slate-200" />
-                          <span className="font-medium">
-                            {getFullName(rel.person)}
-                          </span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleRemoveRelationship(rel.person.id)
-                          }
-                        >
-                          Hapus
-                        </Button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-slate-500">
-                      <p>Belum ada yang dipilih</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-3 sticky bottom-0 bg-white pt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                  >
-                    Batal
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={
-                      isSubmitting || selectedRelationships.length === 0
-                    }
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Spinner size="sm" className="mr-2" />
-                        {isMember ? 'Mengirim Pengajuan...' : 'Menyimpan...'}
-                      </>
-                    ) : isMember ? (
-                      `Ajukan ${selectedRelationships.length} Hubungan`
-                    ) : (
-                      `Tambahkan ${selectedRelationships.length} Hubungan`
-                    )}
-                  </Button>
-                </div>
               </div>
-            </div>
+            )}
+
+          {selectedPerson && isMember && (
+            <RequesterNoteField
+              value={formState.requesterNote}
+              onChange={setRequesterNote}
+            />
+          )}
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!selectedPerson || !selectedRole || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Spinner size="sm" className="mr-2" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan Hubungan'
+              )}
+            </Button>
           </div>
         </div>
       </DialogContent>

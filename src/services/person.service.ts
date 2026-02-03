@@ -46,11 +46,4 @@ export const personService = {
   async delete(personId: string): Promise<void> {
     await apiClient.delete(`/persons/${personId}`);
   },
-
-  async getPublicPerson(personId: string): Promise<PersonWithRelationships> {
-    const { data } = await apiClient.get<PersonWithRelationships>(
-      `/public/persons/${personId}`,
-    );
-    return data;
-  },
 };

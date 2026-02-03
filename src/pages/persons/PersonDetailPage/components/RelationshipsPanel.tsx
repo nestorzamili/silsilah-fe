@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { RelationshipInfo } from '@/types';
 import { AddRelationshipModal } from './AddRelationshipModal';
 import { RelationshipPersonCard } from './RelationshipPersonCard';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import { PlusIcon } from '@heroicons/react/24/outline';
 
 interface RelationshipsPanelProps {
@@ -59,12 +59,9 @@ export function RelationshipsPanel({
   personId,
   relationships,
 }: RelationshipsPanelProps) {
-  const { user: currentUser } = useAuthStore();
+  const { canEdit } = usePermissions();
   const categories = categorizeRelationships(relationships);
   const totalRelations = relationships.length;
-
-  const canEdit =
-    currentUser?.role === 'editor' || currentUser?.role === 'developer';
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm overflow-hidden">
@@ -154,20 +151,18 @@ interface RelationshipsPanelWithAddModalProps {
   personId: string;
   relationships: RelationshipInfo[];
   personName: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  existingData?: any;
 }
 
 export function RelationshipsPanelWithAddModal({
   personId,
   relationships,
   personName,
+  existingData,
 }: RelationshipsPanelWithAddModalProps) {
-  const { user: currentUser } = useAuthStore();
+  const { canModify } = usePermissions();
   const [addModalOpen, setAddModalOpen] = useState(false);
-
-  const canModify =
-    currentUser?.role === 'member' ||
-    currentUser?.role === 'editor' ||
-    currentUser?.role === 'developer';
 
   return (
     <>
@@ -262,6 +257,7 @@ export function RelationshipsPanelWithAddModal({
         onClose={() => setAddModalOpen(false)}
         personId={personId}
         personName={personName}
+        existingData={existingData}
       />
     </>
   );

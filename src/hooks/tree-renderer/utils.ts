@@ -1,10 +1,5 @@
 import type { GraphNode } from '@/types';
-import {
-  MIN_NODE_WIDTH,
-  MAX_NODE_WIDTH,
-  CHAR_WIDTH,
-  BASE_TEXT_OFFSET,
-} from './constants';
+import { MIN_NODE_WIDTH, CHAR_WIDTH, BASE_TEXT_OFFSET } from './constants';
 
 export function getFullName(node: GraphNode): string {
   if (node.full_name) return node.full_name;
@@ -21,8 +16,32 @@ export function getBirthYear(node: GraphNode): number | undefined {
 
 export function calculateNodeWidth(node: GraphNode): number {
   const fullName = getFullName(node);
-  const textWidth = fullName.length * CHAR_WIDTH + BASE_TEXT_OFFSET + 20;
-  return Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, textWidth));
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (context) {
+    context.font = '600 13px Inter, ui-sans-serif, system-ui';
+    const nameWidth = context.measureText(fullName).width;
+
+    let nicknameWidth = 0;
+    if (node.nickname) {
+      context.font = 'italic 11px Inter, ui-sans-serif, system-ui';
+      nicknameWidth = context.measureText(`"${node.nickname}"`).width;
+    }
+
+    const maxTextWidth = Math.max(nameWidth, nicknameWidth);
+
+    const totalWidth = maxTextWidth + BASE_TEXT_OFFSET + 24;
+
+    return Math.max(MIN_NODE_WIDTH, totalWidth);
+  }
+
+  const nameLength = fullName.length;
+  const nicknameLength = node.nickname ? node.nickname.length + 2 : 0;
+  const effectiveLength = Math.max(nameLength, nicknameLength);
+  const tightCharWidth = CHAR_WIDTH * 0.95;
+  const textWidth = effectiveLength * tightCharWidth + BASE_TEXT_OFFSET + 8;
+  return Math.max(MIN_NODE_WIDTH, textWidth);
 }
 
 export function getGenderColors(gender: string | undefined) {

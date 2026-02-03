@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { personService } from '@/services';
 import { QUERY_KEYS } from '@/constants/queryKeys';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getFullName } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Spinner } from '@/components/ui/Spinner';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -26,12 +27,6 @@ import {
   MagnifyingGlassIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-
-function getFullName(person: Person): string {
-  return person.last_name
-    ? `${person.first_name} ${person.last_name}`
-    : person.first_name;
-}
 
 function generatePaginationItems(currentPage: number, totalPages: number) {
   const items: (number | 'ellipsis')[] = [];
@@ -56,13 +51,10 @@ function generatePaginationItems(currentPage: number, totalPages: number) {
 
 export function PersonsListPage() {
   const navigate = useNavigate();
-  const { user: currentUser } = useAuthStore();
+  const { canEdit } = usePermissions();
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
-  const pageSize = 25;
-
-  const canAdd =
-    currentUser?.role === 'editor' || currentUser?.role === 'developer';
+  const pageSize = 30;
 
   const debouncedSearch = useDebounce(searchInput.trim(), 300);
 
@@ -110,7 +102,10 @@ export function PersonsListPage() {
     setPage(1);
   }, []);
 
-  const paginationItems = generatePaginationItems(page, totalPages);
+  const paginationItems = useMemo(
+    () => generatePaginationItems(page, totalPages),
+    [page, totalPages],
+  );
 
   if (isLoading) {
     return (
@@ -145,7 +140,7 @@ export function PersonsListPage() {
                 {totalItems} orang {isSearchMode ? 'ditemukan' : 'terdaftar'}
               </p>
             </div>
-            {canAdd && (
+            {canEdit && (
               <button
                 onClick={() => navigate('/persons/new')}
                 className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors"
@@ -196,36 +191,37 @@ export function PersonsListPage() {
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {persons.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5">
               {persons.map((person: Person) => (
                 <Link
                   key={person.id}
                   to={`/persons/${person.id}`}
-                  className="group flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-emerald-300 hover:shadow-sm hover:bg-emerald-50/30"
+                  className="group flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 transition-all hover:border-emerald-300 hover:shadow-sm hover:bg-emerald-50/30 h-full"
                 >
-                  <Avatar className="hidden sm:block h-12 w-12 shrink-0">
+                  <Avatar className="h-14 w-14 shrink-0 ring-2 ring-slate-50 group-hover:ring-emerald-100 transition-all">
                     <AvatarImage
                       src={person.avatar_url}
                       alt={getFullName(person)}
                     />
-                    <AvatarFallback className="bg-emerald-50 text-sm font-medium text-emerald-600">
+                    <AvatarFallback className="bg-emerald-50 text-lg font-medium text-emerald-600">
                       {getFullName(person).charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-medium text-slate-900 group-hover:text-emerald-600">
-                      {getFullName(person)}
-                    </h3>
-                    <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-xs text-slate-500">
+                  <div className="min-w-0 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="truncate text-sm font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">
+                        {getFullName(person)}
+                      </h3>
+
                       {person.nickname && (
-                        <>
-                          <span className="italic truncate max-w-25">
-                            "{person.nickname}"
-                          </span>
-                          <span className="text-slate-300">•</span>
-                        </>
+                        <p className="mt-0.5 text-xs italic text-slate-500 truncate">
+                          "{person.nickname}"
+                        </p>
                       )}
-                      <span>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                      <span className="font-medium text-slate-600">
                         {person.birth_date
                           ? new Date(person.birth_date).getFullYear()
                           : '—'}
@@ -233,7 +229,11 @@ export function PersonsListPage() {
                       <span className="text-slate-300">•</span>
                       <Badge
                         variant={person.is_alive ? 'secondary' : 'outline'}
-                        className="h-4 px-1.5 text-[10px]"
+                        className={`h-5 px-1.5 text-[10px] font-medium ${
+                          person.is_alive
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}
                       >
                         {person.is_alive ? 'Hidup' : 'Meninggal'}
                       </Badge>

@@ -10,37 +10,75 @@ export function renderSpouseEdges(
   nodeWidths: Map<string, number>,
   spouseEdgeInfo: Map<string, SpouseEdgeInfo>,
 ) {
+  const nodeSpouses = new Map<string, Array<{ id: string; index: number }>>();
+
   spouseEdges.forEach((edge) => {
-    const source = nodePositions.get(edge.source);
-    const target = nodePositions.get(edge.target);
-    if (!source || !target) return;
+    const edgeKey = [edge.source, edge.target].sort().join('-');
+    const info = spouseEdgeInfo.get(edgeKey);
+    const index = info?.index ?? 0;
 
-    const sourceWidth = nodeWidths.get(edge.source) || MIN_NODE_WIDTH;
-    const targetWidth = nodeWidths.get(edge.target) || MIN_NODE_WIDTH;
+    if (!nodeSpouses.has(edge.source)) nodeSpouses.set(edge.source, []);
+    if (!nodeSpouses.has(edge.target)) nodeSpouses.set(edge.target, []);
 
-    const isConsanguineous = edge.metadata?.is_consanguineous;
+    nodeSpouses.get(edge.source)!.push({ id: edge.target, index });
+    nodeSpouses.get(edge.target)!.push({ id: edge.source, index });
+  });
+
+  spouseEdges.forEach((edge) => {
     const edgeKey = [edge.source, edge.target].sort().join('-');
     const edgeInfo = spouseEdgeInfo.get(edgeKey);
-    const isSubsequentSpouse = edgeInfo && edgeInfo.index > 0;
+    const index = edgeInfo?.index ?? 0;
+    const isSubsequentSpouse = index > 0;
+    const isConsanguineous = edge.metadata?.is_consanguineous;
 
+    const sourceSpouses = nodeSpouses.get(edge.source) || [];
+    const targetSpouses = nodeSpouses.get(edge.target) || [];
+
+    let rootId = edge.source;
+    let spouseId = edge.target;
+    let rootSpouseList = sourceSpouses;
+
+    if (targetSpouses.length > sourceSpouses.length) {
+      rootId = edge.target;
+      spouseId = edge.source;
+      rootSpouseList = targetSpouses;
+    }
+
+    let startNodeId = rootId;
+    const endNodeId = spouseId;
     let strokeColor = '#fb7185';
+
     if (isConsanguineous) {
       strokeColor = '#ef4444';
     } else if (isSubsequentSpouse) {
       strokeColor = '#eab308';
+
+      const prevSpouse = rootSpouseList.find((s) => s.index === index - 1);
+      if (prevSpouse) {
+        startNodeId = prevSpouse.id;
+      }
     }
+
+    const start = nodePositions.get(startNodeId);
+    const end = nodePositions.get(endNodeId);
+    if (!start || !end) return;
+
+    const startWidth = nodeWidths.get(startNodeId) || MIN_NODE_WIDTH;
+    const endWidth = nodeWidths.get(endNodeId) || MIN_NODE_WIDTH;
 
     const line = g
       .append('line')
-      .attr('x1', source.x + sourceWidth / 2)
-      .attr('y1', source.y + NODE_HEIGHT / 2)
-      .attr('x2', target.x + targetWidth / 2)
-      .attr('y2', target.y + NODE_HEIGHT / 2)
+      .attr('x1', start.x + startWidth / 2)
+      .attr('y1', start.y + NODE_HEIGHT / 2)
+      .attr('x2', end.x + endWidth / 2)
+      .attr('y2', end.y + NODE_HEIGHT / 2)
       .attr('stroke', strokeColor)
       .attr('stroke-width', 2);
 
     if (isSubsequentSpouse) {
       line.attr('stroke-dasharray', '6,4');
+    } else {
+      line.attr('stroke-dasharray', null);
     }
   });
 }

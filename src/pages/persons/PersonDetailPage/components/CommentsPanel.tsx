@@ -12,15 +12,9 @@ import { commentService } from '@/services';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { ConfirmDeleteDialog } from '@/components/ui/ConfirmDeleteDialog';
 import { Badge } from '@/components/ui/badge';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,8 +44,7 @@ export function CommentsPanel({
 
   const queryClient = useQueryClient();
 
-  // Members can add comments
-  const canAddComment = true; // All users can add comments
+  const canAddComment = true;
 
   const { mutate: updateComment, isPending: isUpdating } = useMutation({
     mutationFn: ({
@@ -65,7 +58,6 @@ export function CommentsPanel({
         content,
       }),
     onSuccess: () => {
-      // Invalidate the specific person's comments query
       queryClient.invalidateQueries({
         queryKey: ['person-comments', comments[0]?.person_id || ''],
       });
@@ -78,7 +70,6 @@ export function CommentsPanel({
     mutationFn: (commentId: string) =>
       commentService.delete(comments[0]?.person_id || '', commentId),
     onSuccess: () => {
-      // Invalidate the specific person's comments query
       queryClient.invalidateQueries({
         queryKey: ['person-comments', comments[0]?.person_id || ''],
       });
@@ -120,13 +111,8 @@ export function CommentsPanel({
     setEditContent('');
   };
 
-  const cancelDelete = () => {
-    setDeleteCommentId(null);
-  };
-
   return (
     <section className="relative flex h-full flex-col bg-white">
-      {/* Toggle Button - Always visible */}
       <div
         className={`absolute top-4 ${isVisible ? 'right-4' : 'right-1'} z-10`}
       >
@@ -144,10 +130,8 @@ export function CommentsPanel({
         </button>
       </div>
 
-      {/* Main Content - Only shown when visible */}
       {isVisible && (
         <>
-          {/* Header */}
           <div className="shrink-0 border-b border-slate-100 px-5 py-4">
             <div>
               <h2 className="font-semibold text-slate-900">Catatan & Cerita</h2>
@@ -159,7 +143,6 @@ export function CommentsPanel({
             </div>
           </div>
 
-          {/* Comment Form */}
           <div className="shrink-0 border-b border-slate-100 p-4">
             {canAddComment && (
               <form onSubmit={handleSubmit}>
@@ -187,7 +170,6 @@ export function CommentsPanel({
             )}
           </div>
 
-          {/* Comments List - Scrollable */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {comments.length > 0 ? (
               <div className="divide-y divide-slate-100">
@@ -233,41 +215,14 @@ export function CommentsPanel({
         </>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+      <ConfirmDeleteDialog
         open={!!deleteCommentId}
         onOpenChange={() => setDeleteCommentId(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hapus Catatan</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-slate-600">
-              Apakah Anda yakin ingin menghapus catatan ini? Tindakan ini tidak
-              dapat dibatalkan.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={cancelDelete}
-              disabled={isDeleting}
-            >
-              Batal
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? 'Menghapus...' : 'Hapus'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onConfirm={handleDelete}
+        title="Hapus Catatan"
+        description="Apakah Anda yakin ingin menghapus catatan ini? Tindakan ini tidak dapat dibatalkan."
+        isLoading={isDeleting}
+      />
     </section>
   );
 }
@@ -293,20 +248,15 @@ function CommentItem({
   cancelEdit: () => void;
   handleUpdate: (e: React.FormEvent) => void;
 }) {
-  const { user: currentUser } = useAuthStore();
+  const { canEdit, isOwner } = usePermissions();
   const timeAgo = getTimeAgo(comment.created_at);
 
-  // Check if comment was edited (created_at !== updated_at)
   const isEdited =
     new Date(comment.created_at).getTime() !==
     new Date(comment.updated_at).getTime();
   const editTimeAgo = isEdited ? getTimeAgo(comment.updated_at) : null;
 
-  // Check if user has permission to edit (editor/developer or own comment)
-  const canEditComment =
-    currentUser?.id === comment.user_id ||
-    currentUser?.role === 'editor' ||
-    currentUser?.role === 'developer';
+  const canEditComment = isOwner(comment.user_id) || canEdit;
 
   return (
     <div className="flex gap-3 px-5 py-4 transition-colors hover:bg-slate-50/50">

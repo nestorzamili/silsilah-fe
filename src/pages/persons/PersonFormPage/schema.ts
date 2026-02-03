@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CreatePersonInput, Gender } from '@/types';
+import type { CreatePersonInput, UpdatePersonInput, Gender } from '@/types';
 
 export const personSchema = z.object({
   first_name: z.string().min(1, 'Nama depan wajib diisi'),
@@ -52,18 +52,30 @@ export function formatDateForBackend(
   return `${dateStr}T00:00:00Z`;
 }
 
-export function transformFormData(data: PersonFormData): CreatePersonInput {
-  const str = (val: string | undefined): string | undefined =>
-    val && val.trim() ? val.trim() : undefined;
+function transformBase(data: PersonFormData) {
+  const str = (val: string | undefined): string | null => {
+    if (val === undefined || val.trim() === '') return null;
+    return val.trim();
+  };
+
+  const date = (val: string | undefined): string | null => {
+    if (val === undefined || !val) return null;
+    return formatDateForBackend(val) ?? null;
+  };
+
+  const gender = (val: string | undefined): Gender | null => {
+    if (val === undefined || !val || val.trim() === '') return null;
+    return val.trim() as Gender;
+  };
 
   return {
     first_name: data.first_name.trim(),
     last_name: str(data.last_name),
     nickname: str(data.nickname),
-    gender: data.gender ? (data.gender as Gender) : undefined,
-    birth_date: formatDateForBackend(data.birth_date),
+    gender: gender(data.gender),
+    birth_date: date(data.birth_date),
     birth_place: str(data.birth_place),
-    death_date: formatDateForBackend(data.death_date),
+    death_date: date(data.death_date),
     death_place: str(data.death_place),
     bio: str(data.bio),
     avatar_url: str(data.avatar_url),
@@ -76,4 +88,14 @@ export function transformFormData(data: PersonFormData): CreatePersonInput {
     address: str(data.address),
     is_alive: data.is_alive,
   };
+}
+
+export function transformFormData(data: PersonFormData): CreatePersonInput {
+  return transformBase(data) as CreatePersonInput;
+}
+
+export function transformFormDataForUpdate(
+  data: PersonFormData,
+): UpdatePersonInput {
+  return transformBase(data);
 }

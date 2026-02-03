@@ -56,8 +56,9 @@ export function ProfilePreview({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <aside className="hidden lg:block shrink-0 border-r border-emerald-100/50 p-6 lg:w-80 lg:overflow-y-auto lg:shadow-2xl lg:shadow-emerald-900/10 z-10 relative bg-white">
-      <div className="mb-6">
+    <aside className="shrink-0 border-b border-emerald-100/50 bg-white p-4 lg:border-b-0 lg:border-r lg:p-6 lg:w-80 lg:overflow-y-auto lg:shadow-2xl lg:shadow-emerald-900/10 z-10 relative">
+      {/* Mobile Header */}
+      <div className="mb-4 lg:mb-6">
         <Link
           to={isEditing ? `/persons/${id}` : '/persons'}
           className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
@@ -67,11 +68,12 @@ export function ProfilePreview({
         </Link>
       </div>
 
-      <div className="flex flex-col items-center text-center">
-        <div className="relative mb-4">
+      {/* Mobile: Compact horizontal layout */}
+      <div className="flex items-center gap-4 lg:flex-col lg:items-center lg:text-center">
+        <div className="relative shrink-0">
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="h-36 w-36 cursor-pointer rounded-full border-4 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-slate-400 hover:bg-slate-100"
+            className="h-20 w-20 lg:h-36 lg:w-36 cursor-pointer rounded-full border-4 border-dashed border-slate-300 bg-slate-50 transition-colors hover:border-slate-400 hover:bg-slate-100"
           >
             {avatarUrl ? (
               <img
@@ -81,14 +83,14 @@ export function ProfilePreview({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center">
-                <UserCircleIcon className="h-24 w-24 text-slate-400" />
+                <UserCircleIcon className="h-12 w-12 lg:h-24 lg:w-24 text-slate-400" />
               </div>
             )}
             <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black bg-opacity-30 opacity-0 transition-opacity hover:opacity-100">
-              <CameraIcon className="h-8 w-8 text-white" />
+              <CameraIcon className="h-6 w-6 lg:h-8 lg:w-8 text-white" />
             </div>
           </div>
-          
+
           <input
             ref={fileInputRef}
             type="file"
@@ -98,13 +100,18 @@ export function ProfilePreview({
           />
         </div>
 
-        <h2 className="text-xl font-semibold text-slate-900">{fullName}</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          {isEditing ? 'Edit Profil' : 'Tambah Orang Baru'}
-        </p>
+        <div className="lg:mb-4 lg:mt-4">
+          <h2 className="text-lg lg:text-xl font-semibold text-slate-900">
+            {fullName}
+          </h2>
+          <p className="text-sm text-slate-500">
+            {isEditing ? 'Edit Profil' : 'Tambah Orang Baru'}
+          </p>
+        </div>
       </div>
 
-      <div className="mt-8 space-y-4 border-t border-slate-200 pt-6">
+      {/* Desktop only: Preview details */}
+      <div className="hidden lg:block mt-8 space-y-4 border-t border-slate-200 pt-6">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
           Preview
         </h3>
@@ -128,9 +135,7 @@ export function ProfilePreview({
             label="Status"
             value={isAlive ? 'Masih hidup' : 'Sudah meninggal'}
           />
-          {birthDate && (
-            <PreviewItem label="Tanggal Lahir" value={birthDate} />
-          )}
+          {birthDate && <PreviewItem label="Tanggal Lahir" value={birthDate} />}
           {birthPlace && (
             <PreviewItem label="Tempat Lahir" value={birthPlace} />
           )}

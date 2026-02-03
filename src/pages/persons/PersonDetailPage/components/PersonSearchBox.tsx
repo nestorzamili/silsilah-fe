@@ -1,8 +1,23 @@
-import { Input } from '@/components/ui/input';
+import { useState, useEffect } from 'react';
+import { Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/Spinner';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getFullName } from '@/utils/person';
 import type { Person, RelationshipType } from '@/types';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface PersonSearchBoxProps {
   currentType: RelationshipType;
@@ -12,76 +27,130 @@ interface PersonSearchBoxProps {
   onSearch: (query: string) => void;
   onAddPerson: (person: Person) => void;
   selectedPersonIds: string[];
+  inputValue?: string;
+  onInputChange?: (value: string) => void;
 }
 
 export function PersonSearchBox({
   currentType,
   searchResults,
   isSearching,
-  searchQuery,
   onSearch,
   onAddPerson,
   selectedPersonIds,
+  inputValue,
+  onInputChange,
 }: PersonSearchBoxProps) {
-  return (
-    <div>
-      <h3 className="text-sm font-medium text-slate-700 mb-3">
-        Cari {currentType === 'PARENT' ? 'Orang Tua' : 'Pasangan'}
-      </h3>
-      <div className="space-y-3">
-        <div className="relative">
-          <Input
-            placeholder={`Cari ${currentType === 'PARENT' ? 'orang tua' : 'pasangan'}...`}
-            onChange={async (e) => {
-              const query = e.target.value;
-              await onSearch(query);
-            }}
-          />
-          {isSearching && (
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <Spinner size="sm" />
-            </div>
-          )}
-        </div>
+  const [open, setOpen] = useState(false);
+  const [internalValue, setInternalValue] = useState('');
 
-        <div className="h-40 overflow-y-auto rounded-lg border border-slate-200">
-          {isSearching ? (
-            <div className="flex h-full items-center justify-center p-3 text-slate-500">
-              Mencari...
-            </div>
-          ) : (
-            <>
-              {searchResults.length > 0 ? (
-                <ul className="divide-y divide-slate-100">
-                  {searchResults.map((person: Person) => (
-                    <li key={person.id} className="p-3 hover:bg-slate-50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-slate-200" />
-                          <span className="font-medium">{getFullName(person)}</span>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onAddPerson(person)}
-                          disabled={selectedPersonIds.includes(person.id)}
-                        >
-                          Tambah
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="flex h-full items-center justify-center p-3 text-slate-500">
-                  {searchQuery ? 'Tidak ditemukan hasil' : 'Masukkan nama untuk mencari'}
+  const debouncedSearch = useDebounce(internalValue, 300);
+
+  useEffect(() => {
+    if (debouncedSearch) {
+      onSearch(debouncedSearch);
+      if (onInputChange) {
+        onInputChange(debouncedSearch);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const getTypeLabel = () => {
+    switch (currentType) {
+      case 'PARENT':
+        return 'orang tua';
+      case 'SPOUSE':
+        return 'pasangan';
+      default:
+        return 'orang';
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium text-slate-700">
+        Cari {getTypeLabel()}
+      </h3>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+          >
+            {inputValue ? inputValue : `Cari ${getTypeLabel()}...`}
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-(--radix-popover-trigger-width) p-0"
+          align="start"
+        >
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder={`Ketik nama ${getTypeLabel()}...`}
+              value={internalValue}
+              onValueChange={setInternalValue}
+            />
+            <CommandList>
+              {isSearching ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  Mencari...
                 </div>
+              ) : (
+                <CommandEmpty>
+                  {internalValue.length < 2
+                    ? 'Ketik minimal 2 karakter'
+                    : 'Tidak ditemukan.'}
+                </CommandEmpty>
               )}
-            </>
-          )}
-        </div>
-      </div>
+
+              {searchResults.length > 0 && (
+                <CommandGroup heading="Hasil Pencarian">
+                  {searchResults.map((person) => (
+                    <CommandItem
+                      key={person.id}
+                      value={person.id}
+                      onSelect={() => {
+                        onAddPerson(person);
+                        setOpen(false);
+                        setInternalValue(''); // Reset search after selection
+                      }}
+                      disabled={selectedPersonIds.includes(person.id)}
+                      className="flex items-center gap-3 py-2 cursor-pointer"
+                    >
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage
+                          src={person.avatar_url}
+                          alt={getFullName(person)}
+                        />
+                        <AvatarFallback className="text-xs">
+                          {getFullName(person).charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {getFullName(person)}
+                        </span>
+                        {person.nickname && (
+                          <span className="text-xs text-muted-foreground italic">
+                            "{person.nickname}"
+                          </span>
+                        )}
+                      </div>
+                      {selectedPersonIds.includes(person.id) && (
+                        <Check className="ml-auto h-4 w-4 opacity-50" />
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

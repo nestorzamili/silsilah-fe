@@ -5,13 +5,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { personService, mediaService, changeRequestService } from '@/services';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Spinner } from '@/components/ui/Spinner';
 import { SEO } from '@/components/SEO';
 import {
   personSchema,
   defaultFormValues,
   transformFormData,
+  transformFormDataForUpdate,
   type PersonFormData,
 } from './schema';
 import { ProfilePreview, PersonFormContent } from './components';
@@ -19,7 +20,7 @@ import { ProfilePreview, PersonFormContent } from './components';
 export function PersonFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user: currentUser } = useAuthStore();
+  const { user, canEdit, isMember } = usePermissions();
   const queryClient = useQueryClient();
   const isEditing = Boolean(id);
 
@@ -46,7 +47,7 @@ export function PersonFormPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: PersonFormData) =>
-      personService.update(id!, transformFormData(data)),
+      personService.update(id!, transformFormDataForUpdate(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['person', id] });
       queryClient.invalidateQueries({ queryKey: ['persons'] });
@@ -91,10 +92,6 @@ export function PersonFormPage() {
 
   const watchedValues = useWatch({ control: form.control });
 
-  const canEdit =
-    currentUser?.role === 'editor' || currentUser?.role === 'developer';
-  const isMember = currentUser?.role === 'member';
-
   useEffect(() => {
     if (canEdit === false && isMember === false) {
       navigate(isEditing ? `/persons/${id}` : '/persons', { replace: true });
@@ -126,7 +123,7 @@ export function PersonFormPage() {
     }
   }, [person, form]);
 
-  if (currentUser === null) {
+  if (user === null) {
     return (
       <div className="flex h-screen items-center justify-center bg-white">
         <Spinner className="size-8" />
@@ -150,8 +147,8 @@ export function PersonFormPage() {
   };
 
   const onSubmitRequest = (data: PersonFormData) => {
-    const formData = transformFormData(data);
     if (isEditing) {
+      const formData = transformFormDataForUpdate(data);
       updateRequestMutation.mutate({
         entity_type: 'PERSON',
         entity_id: id,
@@ -159,6 +156,7 @@ export function PersonFormPage() {
         payload: formData as unknown as Record<string, unknown>,
       });
     } else {
+      const formData = transformFormData(data);
       createRequestMutation.mutate({
         entity_type: 'PERSON',
         action: 'CREATE',

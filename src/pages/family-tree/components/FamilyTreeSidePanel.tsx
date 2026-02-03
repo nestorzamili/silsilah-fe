@@ -105,17 +105,13 @@ export function FamilyTreeSidePanel({
               {name}
             </h4>
             {(person.nickname || person.birth_date) && (
-              <div className="mt-1 flex items-center justify-center gap-2 text-sm text-slate-500">
+              <div className="mt-1 flex flex-col items-center gap-1 text-sm text-slate-500">
                 {person.nickname && (
                   <span className="italic">"{person.nickname}"</span>
-                )}
-                {person.nickname && person.birth_date && (
-                  <span className="text-slate-300">•</span>
                 )}
                 {person.birth_date && (
                   <span>
                     {calculateAge(person.birth_date, person.death_date)} tahun
-                    {!person.is_alive ? ' (meninggal)' : ''}
                   </span>
                 )}
               </div>

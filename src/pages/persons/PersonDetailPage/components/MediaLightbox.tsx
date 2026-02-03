@@ -1,6 +1,6 @@
 import type { Media } from '@/types';
 import { XMarkIcon } from '@heroicons/react/24/solid';
-import { useAuthStore } from '@/stores';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface MediaLightboxProps {
   media: Media[];
@@ -19,14 +19,11 @@ export function MediaLightbox({
   onDelete,
   isDeleting,
 }: MediaLightboxProps) {
-  const { user: currentUser } = useAuthStore();
+  const { canModify, isOwner } = usePermissions();
   const item = media[index];
   const isVideo = item.mime_type?.startsWith('video/');
-  
-  const canDelete = currentUser?.role === 'member' ||
-                    currentUser?.id === item.uploaded_by || 
-                    currentUser?.role === 'editor' || 
-                    currentUser?.role === 'developer';
+
+  const canDelete = canModify || isOwner(item.uploaded_by);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') onClose();

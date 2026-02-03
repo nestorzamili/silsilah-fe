@@ -1,5 +1,5 @@
-import type { GraphNode, GraphEdge } from '@/types';
-import type { TreeLayoutResult } from './types';
+import type { GraphNode, GraphEdge, FamilyGroup } from '@/types';
+import type { TreeLayoutResult, FamilyUnit } from './types';
 import { calculateNodeWidth } from '../utils';
 import { buildParentChildMaps, buildSpouseMaps } from './relationships';
 import { calculateGenerations } from './generations';
@@ -8,9 +8,22 @@ import { calculatePositions } from './positions';
 
 export type { FamilyUnit, TreeLayoutResult } from './types';
 
+/**
+ * Convert backend FamilyGroup to frontend FamilyUnit
+ */
+function convertGroupsToUnits(groups: FamilyGroup[]): FamilyUnit[] {
+  return groups.map((g) => ({
+    id: g.id,
+    parents: g.parents,
+    children: g.children,
+    spouseOrder: g.spouse_order,
+  }));
+}
+
 export function calculateTreeLayout(
   nodes: GraphNode[],
   edges: GraphEdge[],
+  groups?: FamilyGroup[],
 ): TreeLayoutResult {
   const nodeMap = new Map<string, GraphNode>();
   nodes.forEach((n) => nodeMap.set(n.id, n));
@@ -48,14 +61,18 @@ export function calculateTreeLayout(
     spouseMap,
   );
 
-  const familyUnits = buildFamilyUnits(
-    nodes,
-    nodeMap,
-    childToParents,
-    parentToChildren,
-    childOrderMap,
-    spouseOrderMap,
-  );
+  // Use backend groups if available, otherwise compute locally
+  const familyUnits =
+    groups && groups.length > 0
+      ? convertGroupsToUnits(groups)
+      : buildFamilyUnits(
+          nodes,
+          nodeMap,
+          childToParents,
+          parentToChildren,
+          childOrderMap,
+          spouseOrderMap,
+        );
 
   const nodePositions = calculatePositions(
     nodes,

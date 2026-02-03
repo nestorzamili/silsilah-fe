@@ -50,6 +50,7 @@ export function DesktopLayout({
             personId={personId}
             relationships={relationships}
             personName={getFullName(person)}
+            existingData={person}
           />
           <GalleryPanel
             media={media}
